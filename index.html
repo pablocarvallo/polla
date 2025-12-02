@@ -1,0 +1,580 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Wallet, CreditCard, FileText, Trash2, ChevronRight, Settings, Share, Copy } from 'lucide-react';
+
+// Utilidad para cargar scripts externos (necesario para html2canvas)
+const loadScript = (src) => {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+};
+
+// Utilidad para formatear moneda (Pesos chilenos)
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    minimumFractionDigits: 0
+  }).format(amount);
+};
+
+// Hook simple para localStorage
+const useStickyState = (defaultValue, key) => {
+  const [value, setValue] = useState(() => {
+    const stickyValue = window.localStorage.getItem(key);
+    return stickyValue !== null ? JSON.parse(stickyValue) : defaultValue;
+  });
+
+  useEffect(() => {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+
+  return [value, setValue];
+};
+
+export default function App() {
+  // Estados Globales
+  const [activeTab, setActiveTab] = useState('liquidacion'); // 'liquidacion' o 'deuda'
+  const [showSummary, setShowSummary] = useState(false);
+  const summaryRef = useRef(null); // Referencia para la captura de imagen
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
+  // Datos Pestaña 1: Pagos Mensuales
+  const [payments, setPayments] = useStickyState([], 'app-pagos-mensuales');
+  
+  // Datos Pestaña 2: Deuda
+  const [debtConfig, setDebtConfig] = useStickyState({ initial: 0, set: false }, 'app-deuda-config');
+  const [debtPayments, setDebtPayments] = useStickyState([], 'app-deuda-pagos');
+
+  // Inputs Temporales (Formularios)
+  const [paymentForm, setPaymentForm] = useState({ amount: '', detail: '', account: 'Itaú' });
+  const [debtForm, setDebtForm] = useState({ amount: '', detail: '' });
+  const [initialDebtInput, setInitialDebtInput] = useState('');
+
+  // --- LÓGICA DE NEGOCIO ---
+
+  // Calcular deuda actual
+  const totalDebtPaid = debtPayments.reduce((acc, curr) => acc + parseInt(curr.amount || 0), 0);
+  const currentDebt = (parseInt(debtConfig.initial) || 0) - totalDebtPaid;
+
+  // Agregar Pago Mensual (Tab 1)
+  const handleAddPayment = () => {
+    if (!paymentForm.amount || !paymentForm.detail) return;
+    const newPayment = {
+      id: Date.now(),
+      amount: parseInt(paymentForm.amount),
+      detail: paymentForm.detail,
+      account: paymentForm.account,
+      date: new Date().toISOString()
+    };
+    setPayments([...payments, newPayment]);
+    setPaymentForm({ amount: '', detail: '', account: 'Itaú' });
+  };
+
+  // Agregar Pago Deuda (Tab 2)
+  const handleAddDebtPayment = () => {
+    if (!debtForm.amount) return;
+    const amount = parseInt(debtForm.amount);
+    
+    const newDebtPayment = {
+      id: Date.now(),
+      amount: amount,
+      detail: debtForm.detail || 'Abono a deuda',
+      date: new Date().toISOString(),
+      remainingBalanceSnapshot: currentDebt - amount // Guardamos cuánto quedó debiendo en ese momento
+    };
+    setDebtPayments([...debtPayments, newDebtPayment]);
+    setDebtForm({ amount: '', detail: '' });
+  };
+
+  // Eliminar registros
+  const deletePayment = (id) => setPayments(payments.filter(p => p.id !== id));
+  const deleteDebtPayment = (id) => setDebtPayments(debtPayments.filter(p => p.id !== id));
+
+  // Configurar Deuda Inicial
+  const setInitialDebt = () => {
+    if(!initialDebtInput) return;
+    setDebtConfig({ initial: parseInt(initialDebtInput), set: true });
+  };
+
+  // 1. Reinicio Completo de Pagos Mensuales (Pestaña Liquidación)
+  const resetPayments = () => {
+    if (confirm("¿Estás seguro de reiniciar los Pagos Mensuales? Se borrarán todos los registros de esta pestaña.")) {
+      setPayments([]);
+    }
+  };
+
+  // 2. Reinicio Completo de Deuda (Deuda Inicial + Pagos)
+  const resetDebt = () => {
+    if(confirm("¿Estás seguro de reiniciar la deuda? Se borrarán el monto inicial y los pagos de deuda.")) {
+        setDebtConfig({ initial: 0, set: false });
+        setDebtPayments([]);
+        setInitialDebtInput('');
+    }
+  }
+
+  // 3. Reinicio Parcial de Deuda (Solo Historial de Pagos)
+  const resetDebtPaymentsOnly = () => {
+    if (confirm("¿Estás seguro de borrar solo el historial de abonos? El monto de la deuda inicial configurado se mantendrá.")) {
+      setDebtPayments([]);
+    }
+  };
+
+   // Función para generar y compartir imagen
+   const handleShareImage = async () => {
+    if (!summaryRef.current || isGeneratingImage) return;
+    setIsGeneratingImage(true);
+
+    try {
+      // Cargar html2canvas desde CDN
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+
+      if (!window.html2canvas) throw new Error('No se pudo cargar la librería de imagen.');
+
+      // Generar el canvas
+      const canvas = await window.html2canvas(summaryRef.current, {
+        scale: 3, // Mayor escala para mejor calidad en retina display
+        useCORS: true,
+        backgroundColor: '#f9fafb', // Asegurar fondo gris claro
+        logging: false,
+        onclone: (clonedDoc) => {
+            // Pequeños ajustes al clon para que se vea mejor en la imagen
+            const clonedContent = clonedDoc.getElementById('summary-content-capture');
+            if(clonedContent) {
+                clonedContent.style.padding = '20px';
+                clonedContent.style.borderRadius = '20px';
+            }
+        }
+      });
+
+      // Convertir a blob y compartir
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+             setIsGeneratingImage(false);
+             return alert('Error generando la imagen');
+        }
+        const dateStr = new Date().toLocaleDateString('es-CL').replace(/\//g, '-');
+        const file = new File([blob], `Reporte-Pagos-${dateStr}.png`, { type: 'image/png' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Reporte de Pagos',
+            });
+          } catch (error) {
+             if (error.name !== 'AbortError') console.error('Error sharing:', error);
+          }
+        } else {
+          // Fallback para navegadores que no soportan Web Share API (descargar)
+          const link = document.createElement('a');
+          link.download = `Reporte-${dateStr}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+        }
+        setIsGeneratingImage(false);
+      }, 'image/png', 1.0);
+
+    } catch (err) {
+      alert("Hubo un problema al generar la imagen: " + err.message);
+      setIsGeneratingImage(false);
+    }
+  };
+
+  // --- COMPONENTES UI ---
+
+  // Pantalla de Resumen (Reporte)
+  if (showSummary) {
+    const currentMonthName = new Date().toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+    
+    const itauPayments = payments.filter(p => p.account === 'Itaú');
+    const bchPayments = payments.filter(p => p.account === 'BCH');
+    
+    const totalItau = itauPayments.reduce((acc, curr) => acc + curr.amount, 0);
+    const totalBchPayments = bchPayments.reduce((acc, curr) => acc + curr.amount, 0);
+    const totalDebtPaidInSummary = debtPayments.reduce((acc, curr) => acc + curr.amount, 0);
+    const granTotalBCH = totalBchPayments + totalDebtPaidInSummary;
+    const grandTotalMonth = totalItau + granTotalBCH;
+
+    return (
+      <div className="min-h-screen bg-gray-100 font-sans text-gray-800 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-y-auto">
+        
+        {/* Header del Resumen con botón cerrar */}
+        <div className="sticky top-0 bg-gray-100/80 backdrop-blur-md pt-6 px-6 pb-4 flex justify-between items-center z-20">
+           <h2 className="text-xl font-bold text-gray-900">Vista Previa Reporte</h2>
+           <button 
+            onClick={() => setShowSummary(false)}
+            className="text-blue-600 font-medium bg-blue-50 px-4 py-2 rounded-full active:scale-95 transition-transform"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        {/* CONTENEDOR CAPTURABLE - Todo lo que esté dentro de este div saldrá en la imagen */}
+        <div ref={summaryRef} className="p-6 bg-gray-100" id="summary-content-capture">
+            <div className="mb-6 text-center">
+                <h1 className="text-3xl font-bold capitalize text-gray-900 mb-1">{currentMonthName}</h1>
+                <p className="text-gray-500">Total del mes: {formatCurrency(grandTotalMonth)}</p>
+            </div>
+
+            <div className="space-y-6">
+            {/* SECCIÓN ITAÚ */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-orange-600 mb-4 flex items-center gap-3 border-b border-orange-100 pb-3">
+                <div className="w-4 h-4 rounded-full bg-orange-500 shadow-sm"></div>
+                Banco Itaú
+                <span className="ml-auto text-base text-gray-600 font-semibold">{formatCurrency(totalItau)}</span>
+                </h2>
+                <ul className="space-y-4 pl-2">
+                {itauPayments.length === 0 && <li className="text-gray-400 text-sm italic">Sin movimientos</li>}
+                {itauPayments.map(p => (
+                    <li key={p.id} className="text-sm flex flex-col">
+                    <span className="text-gray-900 font-semibold text-base">{p.detail}</span>
+                    <span className="text-gray-500 font-medium">{formatCurrency(p.amount)}</span>
+                    </li>
+                ))}
+                </ul>
+            </div>
+
+            {/* SECCIÓN BCH */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-blue-800 mb-4 flex items-center gap-3 border-b border-blue-100 pb-3">
+                <div className="w-4 h-4 rounded-full bg-blue-800 shadow-sm"></div>
+                BCH
+                <span className="ml-auto text-base text-gray-600 font-semibold">{formatCurrency(granTotalBCH)}</span>
+                </h2>
+                <ul className="space-y-4 pl-2">
+                {/* Pagos de Deuda primero */}
+                {debtPayments.map(dp => (
+                    <li key={dp.id} className="text-sm flex flex-col bg-blue-50/50 p-3 rounded-2xl -ml-2">
+                        <div>
+                            <span className="text-gray-900 font-bold text-base">{dp.detail}</span>
+                            <span className="ml-2 text-xs text-red-500 font-medium bg-red-50 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                Pendiente: {formatCurrency(dp.remainingBalanceSnapshot)}
+                            </span>
+                        </div>
+                        <span className="text-blue-700 font-bold mt-1">{formatCurrency(dp.amount)}</span>
+                    </li>
+                ))}
+
+                {/* Pagos normales BCH */}
+                {bchPayments.map(p => (
+                    <li key={p.id} className="text-sm flex flex-col mt-2">
+                        <span className="text-gray-900 font-semibold text-base">{p.detail}</span>
+                        <span className="text-gray-500 font-medium">{formatCurrency(p.amount)}</span>
+                    </li>
+                ))}
+                
+                {debtPayments.length === 0 && bchPayments.length === 0 && (
+                    <li className="text-gray-400 text-sm italic">Sin movimientos</li>
+                )}
+                </ul>
+            </div>
+            </div>
+             {/* Footer del reporte (visible en la imagen) */}
+            <div className="text-center mt-8 text-gray-400 text-sm">
+                Generado desde App de Pagos
+            </div>
+        </div>
+        {/* FIN CONTENEDOR CAPTURABLE */}
+        
+        {/* Botones de Acción (No salen en la imagen) */}
+        <div className="flex gap-3 px-6 mt-4 pb-24">
+            {/* Botón Compartir Texto */}
+            <button 
+            onClick={() => {
+                let text = `*Resumen ${currentMonthName}*\n\n*BCO ITAÚ (${formatCurrency(totalItau)})*\n`;
+                itauPayments.forEach(p => text += `- ${p.detail}: ${formatCurrency(p.amount)}\n`);
+                text += `\n*BCH (${formatCurrency(granTotalBCH)})*\n`;
+                debtPayments.forEach(p => text += `✅ ${p.detail} (Quedan: ${formatCurrency(p.remainingBalanceSnapshot)}); Monto: ${formatCurrency(p.amount)}\n`);
+                bchPayments.forEach(p => text += `- ${p.detail}: ${formatCurrency(p.amount)}\n`);
+                text += `\n*TOTAL MES: ${formatCurrency(grandTotalMonth)}*`;
+                
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert("Texto copiado al portapapeles");
+            }}
+            className="flex-1 bg-gray-200 text-gray-800 py-4 rounded-2xl font-semibold active:scale-95 transition-transform flex justify-center items-center gap-2"
+            >
+                <Copy size={20} />
+                Copiar Texto
+            </button>
+
+            {/* Nuevo Botón Compartir Imagen */}
+            <button 
+                onClick={handleShareImage}
+                disabled={isGeneratingImage}
+                className={`flex-[1.5] text-white py-4 rounded-2xl font-bold text-lg active:scale-95 transition-transform flex justify-center items-center gap-2 shadow-lg shadow-blue-200 ${isGeneratingImage ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600'}`}
+            >
+                {isGeneratingImage ? (
+                    <>Generando...</>
+                ) : (
+                    <><Share size={22} strokeWidth={2.5} /> Compartir Imagen</>
+                )}
+            </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- RENDER PRINCIPAL ---
+  return (
+    <div className="flex flex-col h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden">
+      
+      {/* HEADER MODIFICADO CON BOTÓN REPORTE */}
+      <div className="pt-14 px-6 pb-4 bg-white/80 backdrop-blur-md border-b border-gray-200 z-10 sticky top-0 flex justify-between items-center">
+        <h1 className="text-3xl font-bold tracking-tight">
+            {activeTab === 'liquidacion' ? 'Pagos' : 'Deudas'}
+        </h1>
+
+        {/* Botón Reporte (solo visible en tab Liquidación) */}
+        {activeTab === 'liquidacion' && (
+            <button
+                onClick={() => setShowSummary(true)}
+                className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-sm active:scale-95 transition-transform flex items-center gap-2"
+            >
+                <FileText size={18} strokeWidth={2.5} />
+                Reporte
+            </button>
+        )}
+      </div>
+
+      {/* CONTENIDO SCROLLEABLE */}
+      <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-6">
+        
+        {activeTab === 'liquidacion' && (
+          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+            {/* Tarjeta de Ingreso */}
+            <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+              <label className="block text-sm font-medium text-gray-500 mb-1 ml-1">Monto</label>
+              <div className="relative mb-4">
+                <span className="absolute left-4 top-3.5 text-gray-400 font-semibold">$</span>
+                <input 
+                  type="number" 
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+                  placeholder="0"
+                  className="w-full bg-gray-50 rounded-2xl py-3 pl-8 pr-4 text-xl font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
+              <label className="block text-sm font-medium text-gray-500 mb-2 ml-1">Cuenta Destino</label>
+              <div className="flex gap-2 mb-4">
+                <button 
+                  onClick={() => setPaymentForm({...paymentForm, account: 'Itaú'})}
+                  className={`flex-1 py-3 rounded-xl font-medium transition-all ${paymentForm.account === 'Itaú' ? 'bg-orange-100 text-orange-700 border-2 border-orange-200 shadow-sm' : 'bg-gray-50 text-gray-500 border border-transparent'}`}
+                >
+                  Itaú
+                </button>
+                <button 
+                  onClick={() => setPaymentForm({...paymentForm, account: 'BCH'})}
+                  className={`flex-1 py-3 rounded-xl font-medium transition-all ${paymentForm.account === 'BCH' ? 'bg-blue-100 text-blue-800 border-2 border-blue-200 shadow-sm' : 'bg-gray-50 text-gray-500 border border-transparent'}`}
+                >
+                  BCH
+                </button>
+              </div>
+
+              <label className="block text-sm font-medium text-gray-500 mb-1 ml-1">Detalle</label>
+              <input 
+                type="text" 
+                value={paymentForm.detail}
+                onChange={(e) => setPaymentForm({...paymentForm, detail: e.target.value})}
+                placeholder="Ej: Supermercado..."
+                className="w-full bg-gray-50 rounded-2xl py-3 px-4 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+
+              <button 
+                onClick={handleAddPayment}
+                className="w-full bg-black text-white py-3.5 rounded-2xl font-semibold text-lg active:scale-95 transition-transform shadow-lg shadow-gray-200"
+              >
+                Agregar Pago
+              </button>
+            </div>
+
+            {/* Lista de Pagos Recientes */}
+            <div className="mt-6">
+              <div className="flex justify-between items-center px-2 mb-2">
+                <h3 className="text-lg font-semibold text-gray-700">Movimientos del mes</h3>
+                {payments.length > 0 && (
+                  <button
+                    onClick={resetPayments}
+                    className="text-red-500 hover:text-red-700 text-sm font-medium p-1 flex items-center gap-1 transition-colors"
+                  >
+                    <Trash2 size={16} />
+                    Limpiar
+                  </button>
+                )}
+              </div>
+              
+              <div className="space-y-3">
+                {payments.length === 0 && <p className="text-center text-gray-400 py-4">No hay pagos registrados</p>}
+                {[...payments].reverse().map(payment => (
+                  <div key={payment.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center group">
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${payment.account === 'Itaú' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-800'}`}>
+                          {payment.account}
+                        </span>
+                        <span className="text-gray-900 font-medium">{payment.detail}</span>
+                      </div>
+                      <p className="text-gray-500 text-sm">{formatCurrency(payment.amount)}</p>
+                    </div>
+                    <button onClick={() => deletePayment(payment.id)} className="text-gray-300 hover:text-red-500 p-2">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'deuda' && (
+          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+            {/* Configuración Deuda Inicial */}
+            {!debtConfig.set ? (
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 text-center">
+                <h3 className="text-lg font-semibold mb-2">Configurar Deuda Inicial</h3>
+                <p className="text-gray-500 text-sm mb-4">Ingresa el monto total adeudado para comenzar a rastrear.</p>
+                <div className="relative mb-4">
+                  <span className="absolute left-4 top-3.5 text-gray-400 font-semibold">$</span>
+                  <input 
+                    type="number" 
+                    value={initialDebtInput}
+                    onChange={(e) => setInitialDebtInput(e.target.value)}
+                    className="w-full bg-gray-50 rounded-2xl py-3 pl-8 pr-4 text-xl font-semibold text-center focus:outline-none"
+                    placeholder="0"
+                  />
+                </div>
+                <button onClick={setInitialDebt} className="w-full bg-blue-600 text-white py-3 rounded-2xl font-semibold">
+                  Establecer Deuda
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Tarjeta de Estado de Deuda */}
+                <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 shadow-lg text-white mb-6 relative overflow-hidden">
+                  <div className="relative z-10">
+                    <p className="text-gray-400 text-sm font-medium mb-1">Saldo Pendiente</p>
+                    <h2 className="text-4xl font-bold mb-4 tracking-tight">{formatCurrency(currentDebt)}</h2>
+                    <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-green-400 transition-all duration-1000"
+                        style={{ width: `${Math.min(100, (totalDebtPaid / debtConfig.initial) * 100)}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-400 mt-2">
+                      <span>Pagado: {formatCurrency(totalDebtPaid)}</span>
+                      <span>Total: {formatCurrency(debtConfig.initial)}</span>
+                    </div>
+                  </div>
+                  {/* Botón para Reinicio Completo de Deuda (Deuda Inicial + Pagos) */}
+                  <button onClick={resetDebt} className="absolute top-4 right-4 text-gray-500 hover:text-white">
+                      <Settings size={18} />
+                  </button>
+                </div>
+
+                {/* Formulario Pago Deuda */}
+                <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-6">
+                  <h3 className="font-semibold text-gray-900 mb-3">Registrar Abono</h3>
+                  <div className="flex gap-3 mb-3">
+                     <div className="relative flex-1">
+                        <span className="absolute left-3 top-3 text-gray-400">$</span>
+                        <input 
+                          type="number" 
+                          value={debtForm.amount}
+                          onChange={(e) => setDebtForm({...debtForm, amount: e.target.value})}
+                          placeholder="Monto"
+                          className="w-full bg-gray-50 rounded-xl py-2.5 pl-6 pr-3 font-semibold focus:outline-none"
+                        />
+                      </div>
+                      <input 
+                        type="text" 
+                        value={debtForm.detail}
+                        onChange={(e) => setDebtForm({...debtForm, detail: e.target.value})}
+                        placeholder="Detalle (Opcional)"
+                        className="flex-[1.5] bg-gray-50 rounded-xl py-2.5 px-3 focus:outline-none"
+                      />
+                  </div>
+                  <button 
+                    onClick={handleAddDebtPayment}
+                    className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold active:scale-95 transition-transform"
+                  >
+                    Ingresar Pago
+                  </button>
+                </div>
+
+                {/* Historial Deuda */}
+                <div className="flex justify-between items-center px-2 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-700">Historial</h3>
+                  {/* Botón para Reinicio Parcial de Deuda (Solo Historial de Pagos) */}
+                  {debtPayments.length > 0 && (
+                    <button
+                      onClick={resetDebtPaymentsOnly}
+                      className="text-red-500 hover:text-red-700 text-sm font-medium p-1 flex items-center gap-1 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                      Limpiar Historial
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-3">
+                   {debtPayments.length === 0 && <p className="text-center text-gray-400 text-sm">No hay abonos registrados</p>}
+                   {[...debtPayments].reverse().map(payment => (
+                    <div key={payment.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+                      <div>
+                        <p className="text-gray-900 font-medium">{payment.detail}</p>
+                        <p className="text-gray-400 text-xs">
+                           Saldo restante tras pago: {formatCurrency(payment.remainingBalanceSnapshot)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                         <span className="block text-green-600 font-semibold">+{formatCurrency(payment.amount)}</span>
+                         <button onClick={() => deleteDebtPayment(payment.id)} className="text-xs text-red-300 mt-1">Eliminar</button>
+                      </div>
+                    </div>
+                   ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* BOTTOM NAVIGATION (TAB BAR) */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 pb-8 pt-2 px-6 flex justify-around items-end z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
+        <button 
+          onClick={() => setActiveTab('liquidacion')}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'liquidacion' ? 'text-blue-600 -translate-y-1' : 'text-gray-400'}`}
+        >
+          <div className={`p-2 rounded-2xl transition-all ${activeTab === 'liquidacion' ? 'bg-blue-50' : 'bg-transparent'}`}>
+            <Wallet size={24} strokeWidth={activeTab === 'liquidacion' ? 2.5 : 2} />
+          </div>
+          <span className="text-xs font-medium">Pagos</span>
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('deuda')}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'deuda' ? 'text-blue-600 -translate-y-1' : 'text-gray-400'}`}
+        >
+          <div className={`p-2 rounded-2xl transition-all ${activeTab === 'deuda' ? 'bg-blue-50' : 'bg-transparent'}`}>
+            <CreditCard size={24} strokeWidth={activeTab === 'deuda' ? 2.5 : 2} />
+          </div>
+          <span className="text-xs font-medium">Deudas</span>
+        </button>
+      </div>
+
+    </div>
+  );
+}
