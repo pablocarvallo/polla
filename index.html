@@ -1,580 +1,1027 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Wallet, CreditCard, FileText, Trash2, ChevronRight, Settings, Share, Copy } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pagos y Deuda</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-// Utilidad para cargar scripts externos (necesario para html2canvas)
-const loadScript = (src) => {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) {
-      resolve();
-      return;
+  <!-- Modo app en iOS (sin barra de Safari al agregar a pantalla de inicio) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+  <!-- Icono de la app (polla.png debe estar en el mismo repo) -->
+  <link rel="apple-touch-icon" href="polla.png" />
+  <link rel="icon" type="image/png" href="polla.png" />
+
+  <style>
+    :root {
+      --bg: #f2f3f7;
+      --card-bg: #ffffff;
+      --accent: #3277ff;
+      --accent-soft: #e3edff;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --border-subtle: #e5e7eb;
+      --danger: #e11d48;
     }
-    const script = document.createElement('script');
-    script.src = src;
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-};
 
-// Utilidad para formatear moneda (Pesos chilenos)
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    minimumFractionDigits: 0
-  }).format(amount);
-};
+    * {
+      box-sizing: border-box;
+    }
 
-// Hook simple para localStorage
-const useStickyState = (defaultValue, key) => {
-  const [value, setValue] = useState(() => {
-    const stickyValue = window.localStorage.getItem(key);
-    return stickyValue !== null ? JSON.parse(stickyValue) : defaultValue;
-  });
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      -webkit-font-smoothing: antialiased;
+    }
 
-  useEffect(() => {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  }, [key, value]);
+    .app {
+      min-height: 100vh;
+      max-width: 600px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
 
-  return [value, setValue];
-};
+    .main {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
 
-export default function App() {
-  // Estados Globales
-  const [activeTab, setActiveTab] = useState('liquidacion'); // 'liquidacion' o 'deuda'
-  const [showSummary, setShowSummary] = useState(false);
-  const summaryRef = useRef(null); // Referencia para la captura de imagen
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(10px);
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
 
-  // Datos Pestaña 1: Pagos Mensuales
-  const [payments, setPayments] = useStickyState([], 'app-pagos-mensuales');
-  
-  // Datos Pestaña 2: Deuda
-  const [debtConfig, setDebtConfig] = useStickyState({ initial: 0, set: false }, 'app-deuda-config');
-  const [debtPayments, setDebtPayments] = useStickyState([], 'app-deuda-pagos');
+    .screen.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
+    }
 
-  // Inputs Temporales (Formularios)
-  const [paymentForm, setPaymentForm] = useState({ amount: '', detail: '', account: 'Itaú' });
-  const [debtForm, setDebtForm] = useState({ amount: '', detail: '' });
-  const [initialDebtInput, setInitialDebtInput] = useState('');
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px 8px;
+      padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(242,243,247,0.9);
+      border-bottom: 1px solid var(--border-subtle);
+      z-index: 10;
+    }
 
-  // --- LÓGICA DE NEGOCIO ---
+    .top-title {
+      font-size: 17px;
+      font-weight: 600;
+    }
 
-  // Calcular deuda actual
-  const totalDebtPaid = debtPayments.reduce((acc, curr) => acc + parseInt(curr.amount || 0), 0);
-  const currentDebt = (parseInt(debtConfig.initial) || 0) - totalDebtPaid;
+    .top-button {
+      border: none;
+      background: transparent;
+      font-size: 14px;
+      color: var(--accent);
+      padding: 6px 10px;
+      border-radius: 999px;
+    }
 
-  // Agregar Pago Mensual (Tab 1)
-  const handleAddPayment = () => {
-    if (!paymentForm.amount || !paymentForm.detail) return;
-    const newPayment = {
-      id: Date.now(),
-      amount: parseInt(paymentForm.amount),
-      detail: paymentForm.detail,
-      account: paymentForm.account,
-      date: new Date().toISOString()
+    .top-button:active {
+      background: rgba(50,119,255,0.1);
+    }
+
+    .top-button-left {
+      margin-right: 8px;
+    }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 16px 16px;
+      padding-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 12px 0 6px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 12px 14px;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.06);
+      border: 1px solid rgba(148,163,184,0.18);
+      margin-bottom: 10px;
+    }
+
+    .row-inline {
+      display: flex;
+      gap: 8px;
+    }
+
+    .row-inline > * {
+      flex: 1;
+    }
+
+    .field {
+      margin-bottom: 10px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      padding: 8px 10px;
+      font-size: 14px;
+      background: #f9fafb;
+      outline: none;
+    }
+
+    .field textarea {
+      min-height: 48px;
+      resize: vertical;
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: var(--accent);
+      background: #ffffff;
+      box-shadow: 0 0 0 1px rgba(50,119,255,0.14);
+    }
+
+    .field-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .field-checkbox input {
+      width: 18px;
+      height: 18px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .muted {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .primary-button {
+      width: 100%;
+      border-radius: 999px;
+      border: none;
+      padding: 10px 14px;
+      font-size: 15px;
+      font-weight: 600;
+      background: var(--accent);
+      color: #ffffff;
+      margin-top: 2px;
+    }
+
+    .primary-button:active {
+      opacity: 0.85;
+    }
+
+    .secondary-button {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      padding: 9px 14px;
+      font-size: 14px;
+      background: #f9fafb;
+      color: var(--text-main);
+      margin-top: 2px;
+    }
+
+    .secondary-button:active {
+      background: #eceff3;
+    }
+
+    .item-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(226,232,240,0.7);
+    }
+
+    .item:last-child {
+      border-bottom: none;
+    }
+
+    .item-main {
+      max-width: 70%;
+    }
+
+    .item-line1 {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .item-line2 {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .item-amount {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .item-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .chip-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .chip {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e5e7eb;
+    }
+
+    .chip-strong {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .debt-balance {
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .debt-balance span {
+      font-weight: 700;
+    }
+
+    .debt-warning {
+      font-size: 12px;
+      color: var(--danger);
+      margin-top: 4px;
+    }
+
+    .report-card h2 {
+      margin-top: 0;
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+
+    .report-card h3 {
+      margin: 10px 0 6px;
+      font-size: 15px;
+    }
+
+    .report-card ul {
+      padding-left: 18px;
+      margin: 0 0 4px;
+      font-size: 14px;
+    }
+
+    .report-card li {
+      margin-bottom: 4px;
+    }
+
+    .report-note {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    .tab-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      border-top: 1px solid var(--border-subtle);
+      padding: 6px 16px 10px;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+      background: rgba(248,249,252,0.96);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .tab-button {
+      flex: 1;
+      border: none;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding-top: 2px;
+      padding-bottom: 2px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .tab-button .tab-icon {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .tab-button.active {
+      color: var(--accent);
+    }
+
+    .tab-button.active .tab-icon {
+      transform: translateY(-1px);
+    }
+
+    .tab-label {
+      font-size: 11px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #020617;
+        --card-bg: #020617;
+        --text-main: #e5e7eb;
+        --text-muted: #9ca3af;
+        --border-subtle: #1f2937;
+        --accent-soft: rgba(50,119,255,0.18);
+      }
+
+      .card {
+        box-shadow: 0 10px 30px rgba(0,0,0,0.65);
+      }
+
+      .field input,
+      .field select,
+      .field textarea {
+        background: #020617;
+        border-color: #111827;
+      }
+
+      .tab-bar,
+      .top-bar {
+        background: rgba(2,6,23,0.94);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <main class="main">
+      <!-- Pestaña 1: Liquidación mensual -->
+      <section id="screen-liquidacion" class="screen active">
+        <header class="top-bar">
+          <div class="top-title">Liquidación mensual</div>
+          <button id="btn-open-report" class="top-button">Reporte</button>
+        </header>
+        <div class="content">
+          <div class="chip-row">
+            <div class="pill" id="current-month-pill"></div>
+            <div class="chip chip-strong" id="summary-chip"></div>
+          </div>
+
+          <h2 class="section-title">Nuevo pago</h2>
+          <form id="form-income" class="card" autocomplete="off">
+            <div class="field">
+              <label for="income-date">Fecha</label>
+              <input type="date" id="income-date" />
+            </div>
+
+            <div class="row-inline">
+              <div class="field">
+                <label for="income-amount">Monto ($)</label>
+                <input type="text" id="income-amount" inputmode="decimal" placeholder="Ej: 150000" />
+              </div>
+              <div class="field">
+                <label for="income-bank">Banco</label>
+                <select id="income-bank">
+                  <option value="itau">Itaú</option>
+                  <option value="bch">BCH</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="income-detail">Detalle</label>
+              <input type="text" id="income-detail" placeholder="Ej: Transferencia mensual, pago deuda, etc." />
+            </div>
+
+            <div class="field-checkbox">
+              <input type="checkbox" id="income-is-debt" />
+              <label for="income-is-debt">Este pago es un pago de deuda (se refleja en BCH y usará el saldo pendiente de la pestaña Deuda)</label>
+            </div>
+
+            <button type="submit" class="primary-button">Agregar pago</button>
+          </form>
+
+          <h2 class="section-title">Pagos del mes</h2>
+          <div class="card" id="card-incomes-list">
+            <div id="incomes-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pestaña 2: Deuda -->
+      <section id="screen-deuda" class="screen">
+        <header class="top-bar">
+          <div class="top-title">Deuda con mi esposa</div>
+          <div style="width:52px;"></div>
+        </header>
+        <div class="content">
+          <h2 class="section-title">Saldo inicial de la deuda</h2>
+          <form id="form-debt-initial" class="card" autocomplete="off">
+            <div class="field">
+              <label for="debt-initial">Saldo inicial ($)</label>
+              <input type="text" id="debt-initial" inputmode="decimal" placeholder="Ej: 1000000" />
+            </div>
+            <button type="submit" class="secondary-button">Guardar saldo inicial</button>
+            <div class="debt-balance" id="debt-balance-text"></div>
+            <div class="debt-warning" id="debt-warning-text"></div>
+          </form>
+
+          <h2 class="section-title">Registrar pago de deuda</h2>
+          <form id="form-debt-payment" class="card" autocomplete="off">
+            <div class="field">
+              <label for="debt-payment-date">Fecha</label>
+              <input type="date" id="debt-payment-date" />
+            </div>
+
+            <div class="field">
+              <label for="debt-payment-amount">Monto pagado ($)</label>
+              <input type="text" id="debt-payment-amount" inputmode="decimal" placeholder="Ej: 100000" />
+            </div>
+
+            <div class="field">
+              <label for="debt-payment-detail">Detalle</label>
+              <input type="text" id="debt-payment-detail" placeholder="Ej: Pago deuda noviembre" />
+            </div>
+
+            <button type="submit" class="primary-button">Registrar pago de deuda</button>
+          </form>
+
+          <h2 class="section-title">Historial de pagos de deuda</h2>
+          <div class="card">
+            <div id="debt-payments-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pantalla de reporte -->
+      <section id="screen-report" class="screen">
+        <header class="top-bar">
+          <button id="btn-back-from-report" class="top-button top-button-left">‹ Atrás</button>
+          <div class="top-title">Reporte del mes</div>
+          <button id="btn-share-report" class="top-button">Compartir</button>
+        </header>
+        <div class="content">
+          <div id="report-content" class="card report-card">
+            <!-- Se llena dinámicamente -->
+          </div>
+          <p class="report-note">
+            El botón "Compartir" genera una imagen del reporte. Si el sistema no permite compartir directamente,
+            se descargará la imagen para que puedas enviarla desde Fotos o Archivos.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Barra de pestañas inferior -->
+    <nav class="tab-bar">
+      <button class="tab-button active" data-target="screen-liquidacion">
+        <span class="tab-icon">💸</span>
+        <span class="tab-label">Liquidación</span>
+      </button>
+      <button class="tab-button" data-target="screen-deuda">
+        <span class="tab-icon">📉</span>
+        <span class="tab-label">Deuda</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Librería para capturar el reporte como imagen -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <script>
+    const STORAGE_KEY = "pagos_y_deuda_v1";
+
+    let state = {
+      incomes: [], // {id, date, amount, bank, detail, isDebtPayment}
+      debt: {
+        initialBalance: 0,
+        payments: [] // {id, date, amount, detail}
+      }
     };
-    setPayments([...payments, newPayment]);
-    setPaymentForm({ amount: '', detail: '', account: 'Itaú' });
-  };
 
-  // Agregar Pago Deuda (Tab 2)
-  const handleAddDebtPayment = () => {
-    if (!debtForm.amount) return;
-    const amount = parseInt(debtForm.amount);
-    
-    const newDebtPayment = {
-      id: Date.now(),
-      amount: amount,
-      detail: debtForm.detail || 'Abono a deuda',
-      date: new Date().toISOString(),
-      remainingBalanceSnapshot: currentDebt - amount // Guardamos cuánto quedó debiendo en ese momento
-    };
-    setDebtPayments([...debtPayments, newDebtPayment]);
-    setDebtForm({ amount: '', detail: '' });
-  };
+    let currentTabId = "screen-liquidacion";
 
-  // Eliminar registros
-  const deletePayment = (id) => setPayments(payments.filter(p => p.id !== id));
-  const deleteDebtPayment = (id) => setDebtPayments(debtPayments.filter(p => p.id !== id));
-
-  // Configurar Deuda Inicial
-  const setInitialDebt = () => {
-    if(!initialDebtInput) return;
-    setDebtConfig({ initial: parseInt(initialDebtInput), set: true });
-  };
-
-  // 1. Reinicio Completo de Pagos Mensuales (Pestaña Liquidación)
-  const resetPayments = () => {
-    if (confirm("¿Estás seguro de reiniciar los Pagos Mensuales? Se borrarán todos los registros de esta pestaña.")) {
-      setPayments([]);
-    }
-  };
-
-  // 2. Reinicio Completo de Deuda (Deuda Inicial + Pagos)
-  const resetDebt = () => {
-    if(confirm("¿Estás seguro de reiniciar la deuda? Se borrarán el monto inicial y los pagos de deuda.")) {
-        setDebtConfig({ initial: 0, set: false });
-        setDebtPayments([]);
-        setInitialDebtInput('');
-    }
-  }
-
-  // 3. Reinicio Parcial de Deuda (Solo Historial de Pagos)
-  const resetDebtPaymentsOnly = () => {
-    if (confirm("¿Estás seguro de borrar solo el historial de abonos? El monto de la deuda inicial configurado se mantendrá.")) {
-      setDebtPayments([]);
-    }
-  };
-
-   // Función para generar y compartir imagen
-   const handleShareImage = async () => {
-    if (!summaryRef.current || isGeneratingImage) return;
-    setIsGeneratingImage(true);
-
-    try {
-      // Cargar html2canvas desde CDN
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-
-      if (!window.html2canvas) throw new Error('No se pudo cargar la librería de imagen.');
-
-      // Generar el canvas
-      const canvas = await window.html2canvas(summaryRef.current, {
-        scale: 3, // Mayor escala para mejor calidad en retina display
-        useCORS: true,
-        backgroundColor: '#f9fafb', // Asegurar fondo gris claro
-        logging: false,
-        onclone: (clonedDoc) => {
-            // Pequeños ajustes al clon para que se vea mejor en la imagen
-            const clonedContent = clonedDoc.getElementById('summary-content-capture');
-            if(clonedContent) {
-                clonedContent.style.padding = '20px';
-                clonedContent.style.borderRadius = '20px';
-            }
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          if (!parsed.incomes) parsed.incomes = [];
+          if (!parsed.debt) parsed.debt = { initialBalance: 0, payments: [] };
+          if (!Array.isArray(parsed.debt.payments)) parsed.debt.payments = [];
+          state = parsed;
         }
+      } catch (e) {
+        console.error("Error al cargar estado:", e);
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.error("Error al guardar estado:", e);
+      }
+    }
+
+    function todayISO() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function parseAmount(value) {
+      if (!value) return NaN;
+      let cleaned = String(value)
+        .replace(/\s+/g, "")
+        .replace(/\./g, "")
+        .replace(/,/g, ".")
+        .replace(/[^\d.]/g, "");
+      if (!cleaned) return NaN;
+      const num = parseFloat(cleaned);
+      if (isNaN(num)) return NaN;
+      return Math.round(num);
+    }
+
+    function formatCurrency(value) {
+      const val = Number(value) || 0;
+      try {
+        return new Intl.NumberFormat("es-CL", {
+          style: "currency",
+          currency: "CLP",
+          maximumFractionDigits: 0
+        }).format(val);
+      } catch {
+        return "$" + val.toLocaleString("es-CL", { maximumFractionDigits: 0 });
+      }
+    }
+
+    function formatShortDate(dateStr) {
+      const d = new Date(dateStr);
+      if (Number.isNaN(d.getTime())) return "";
+      return d.toLocaleDateString("es-CL", { day: "2-digit", month: "short" });
+    }
+
+    function getCurrentMonthYearText() {
+      const now = new Date();
+      return now.toLocaleDateString("es-CL", {
+        month: "long",
+        year: "numeric"
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function getPendingDebt() {
+      const initial = Number(state.debt.initialBalance) || 0;
+      const paid = state.debt.payments.reduce((sum, p) => {
+        return sum + (Number(p.amount) || 0);
+      }, 0);
+      return Math.max(initial - paid, 0);
+    }
+
+    function setScreen(screenId, fromTab = false) {
+      const screens = document.querySelectorAll(".screen");
+      screens.forEach((s) => {
+        s.classList.toggle("active", s.id === screenId);
       });
 
-      // Convertir a blob y compartir
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-             setIsGeneratingImage(false);
-             return alert('Error generando la imagen');
+      if (fromTab) {
+        currentTabId = screenId;
+        const tabButtons = document.querySelectorAll(".tab-button");
+        tabButtons.forEach((btn) => {
+          const tgt = btn.getAttribute("data-target");
+          btn.classList.toggle("active", tgt === screenId);
+        });
+      }
+    }
+
+    function renderMonthChip() {
+      const pill = document.getElementById("current-month-pill");
+      if (pill) {
+        pill.textContent = getCurrentMonthYearText();
+      }
+    }
+
+    function renderSummaryChip() {
+      const chip = document.getElementById("summary-chip");
+      const now = new Date();
+      const m = now.getMonth();
+      const y = now.getFullYear();
+      const total = state.incomes.reduce((sum, inc) => {
+        const d = new Date(inc.date);
+        if (d.getMonth() === m && d.getFullYear() === y) {
+          return sum + (Number(inc.amount) || 0);
         }
-        const dateStr = new Date().toLocaleDateString('es-CL').replace(/\//g, '-');
-        const file = new File([blob], `Reporte-Pagos-${dateStr}.png`, { type: 'image/png' });
+        return sum;
+      }, 0);
+      chip.textContent = "Total mes: " + formatCurrency(total);
+    }
+
+    function renderIncomesList() {
+      const container = document.getElementById("incomes-list");
+      const now = new Date();
+      const m = now.getMonth();
+      const y = now.getFullYear();
+
+      const incomesThisMonth = state.incomes
+        .filter((inc) => {
+          const d = new Date(inc.date);
+          return d.getMonth() === m && d.getFullYear() === y;
+        })
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      if (!incomesThisMonth.length) {
+        container.innerHTML = '<p class="muted">Sin pagos registrados este mes.</p>';
+        return;
+      }
+
+      let html = '<ul class="item-list">';
+      incomesThisMonth.forEach((inc) => {
+        const bankLabel = inc.bank === "bch" ? "BCH" : "Itaú";
+        const dateLabel = formatShortDate(inc.date);
+        const debtTag = inc.isDebtPayment ? " · Pago deuda" : "";
+        html += `
+          <li class="item">
+            <div class="item-main">
+              <div class="item-line1">${bankLabel}${debtTag}</div>
+              <div class="item-line2">${escapeHtml(inc.detail || "")}</div>
+              <div class="item-meta">${escapeHtml(dateLabel)}</div>
+            </div>
+            <div class="item-amount">${formatCurrency(inc.amount)}</div>
+          </li>
+        `;
+      });
+      html += "</ul>";
+      container.innerHTML = html;
+    }
+
+    function renderDebtPanel() {
+      const balanceText = document.getElementById("debt-balance-text");
+      const warningText = document.getElementById("debt-warning-text");
+      const initial = Number(state.debt.initialBalance) || 0;
+      const pending = getPendingDebt();
+
+      if (initial <= 0) {
+        balanceText.textContent = "Define un saldo inicial para comenzar a registrar pagos.";
+        warningText.textContent = "";
+        return;
+      }
+
+      balanceText.innerHTML =
+        'Saldo inicial: <span>' +
+        formatCurrency(initial) +
+        "</span> · Pendiente: <span>" +
+        formatCurrency(pending) +
+        "</span>";
+      if (pending === 0) {
+        warningText.textContent = "Deuda completamente pagada.";
+      } else if (pending < initial * 0.2) {
+        warningText.textContent = "La deuda está cercana a terminarse.";
+      } else {
+        warningText.textContent = "";
+      }
+
+      const inputInitial = document.getElementById("debt-initial");
+      if (inputInitial && !inputInitial.value) {
+        inputInitial.value = initial > 0 ? initial : "";
+      }
+    }
+
+    function renderDebtPaymentsList() {
+      const container = document.getElementById("debt-payments-list");
+      const payments = state.debt.payments
+        .slice()
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      if (!payments.length) {
+        container.innerHTML = '<p class="muted">Aún no hay pagos de deuda registrados.</p>';
+        return;
+      }
+
+      let html = '<ul class="item-list">';
+      payments.forEach((p) => {
+        const dateLabel = formatShortDate(p.date);
+        html += `
+          <li class="item">
+            <div class="item-main">
+              <div class="item-line1">${escapeHtml(p.detail || "Pago de deuda")}</div>
+              <div class="item-meta">${escapeHtml(dateLabel)}</div>
+            </div>
+            <div class="item-amount">${formatCurrency(p.amount)}</div>
+          </li>
+        `;
+      });
+      html += "</ul>";
+      container.innerHTML = html;
+    }
+
+    function buildReportContent() {
+      const container = document.getElementById("report-content");
+      const now = new Date();
+      const m = now.getMonth();
+      const y = now.getFullYear();
+      const title = getCurrentMonthYearText();
+
+      const incomesThisMonth = state.incomes
+        .filter((inc) => {
+          const d = new Date(inc.date);
+          return d.getMonth() === m && d.getFullYear() === y;
+        })
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      const itau = incomesThisMonth.filter((i) => i.bank === "itau");
+      const bch = incomesThisMonth.filter((i) => i.bank === "bch");
+      const pendingDebt = getPendingDebt();
+
+      let totalMonth = incomesThisMonth.reduce((sum, i) => {
+        return sum + (Number(i.amount) || 0);
+      }, 0);
+
+      let html = "";
+      html += `<h2>${escapeHtml(title)}</h2>`;
+      html += `<p class="muted">Resumen de pagos del mes · Total: <strong>${formatCurrency(
+        totalMonth
+      )}</strong></p>`;
+
+      if (!incomesThisMonth.length) {
+        html += `<p class="muted">No hay pagos registrados para este mes.</p>`;
+        container.innerHTML = html;
+        return;
+      }
+
+      html += `<h3>Banco Itaú</h3>`;
+      if (!itau.length) {
+        html += `<p class="muted">Sin pagos en Itaú.</p>`;
+      } else {
+        html += "<ul>";
+        itau.forEach((inc) => {
+          html += `<li>${escapeHtml(inc.detail || "Pago")}; ${formatCurrency(
+            inc.amount
+          )}</li>`;
+        });
+        html += "</ul>";
+      }
+
+      html += `<h3>BCH</h3>`;
+      if (!bch.length) {
+        html += `<p class="muted">Sin pagos en BCH.</p>`;
+      } else {
+        html += "<ul>";
+        bch.forEach((inc) => {
+          const isDebt = inc.isDebtPayment;
+          const label = escapeHtml(inc.detail || (isDebt ? "Pago deuda" : "Pago"));
+          if (isDebt) {
+            html += `<li>${label} (pendiente: ${formatCurrency(
+              pendingDebt
+            )}); ${formatCurrency(inc.amount)}</li>`;
+          } else {
+            html += `<li>${label}; ${formatCurrency(inc.amount)}</li>`;
+          }
+        });
+        html += "</ul>";
+      }
+
+      html += `<p class="report-note">El saldo pendiente mostrado en los pagos de deuda se obtiene desde la pestaña "Deuda" (saldo inicial menos pagos de deuda registrados).</p>`;
+
+      container.innerHTML = html;
+    }
+
+    async function shareReportImage() {
+      const reportEl = document.getElementById("report-content");
+      if (!reportEl) return;
+
+      try {
+        window.scrollTo(0, 0);
+
+        const canvas = await html2canvas(reportEl, {
+          scale: 2,
+          backgroundColor: null
+        });
+
+        const blob = await new Promise((resolve) =>
+          canvas.toBlob(resolve, "image/png")
+        );
+        if (!blob) throw new Error("No se pudo generar la imagen");
+
+        const file = new File([blob], "reporte-liquidacion.png", {
+          type: "image/png"
+        });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: 'Reporte de Pagos',
-            });
-          } catch (error) {
-             if (error.name !== 'AbortError') console.error('Error sharing:', error);
-          }
+          await navigator.share({
+            files: [file],
+            title: "Reporte de liquidación",
+            text: "Resumen mensual de pagos y deuda."
+          });
         } else {
-          // Fallback para navegadores que no soportan Web Share API (descargar)
-          const link = document.createElement('a');
-          link.download = `Reporte-${dateStr}.png`;
-          link.href = canvas.toDataURL('image/png');
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = "reporte-liquidacion.png";
+          document.body.appendChild(link);
           link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+          alert(
+            "La imagen del reporte se descargó. Puedes compartirla desde Fotos o Archivos."
+          );
         }
-        setIsGeneratingImage(false);
-      }, 'image/png', 1.0);
-
-    } catch (err) {
-      alert("Hubo un problema al generar la imagen: " + err.message);
-      setIsGeneratingImage(false);
+      } catch (err) {
+        console.error(err);
+        alert("Ocurrió un problema al generar la imagen del reporte.");
+      }
     }
-  };
 
-  // --- COMPONENTES UI ---
+    document.addEventListener("DOMContentLoaded", () => {
+      loadState();
 
-  // Pantalla de Resumen (Reporte)
-  if (showSummary) {
-    const currentMonthName = new Date().toLocaleString('es-ES', { month: 'long', year: 'numeric' });
-    
-    const itauPayments = payments.filter(p => p.account === 'Itaú');
-    const bchPayments = payments.filter(p => p.account === 'BCH');
-    
-    const totalItau = itauPayments.reduce((acc, curr) => acc + curr.amount, 0);
-    const totalBchPayments = bchPayments.reduce((acc, curr) => acc + curr.amount, 0);
-    const totalDebtPaidInSummary = debtPayments.reduce((acc, curr) => acc + curr.amount, 0);
-    const granTotalBCH = totalBchPayments + totalDebtPaidInSummary;
-    const grandTotalMonth = totalItau + granTotalBCH;
+      const inputIncomeDate = document.getElementById("income-date");
+      const inputDebtPayDate = document.getElementById("debt-payment-date");
+      if (inputIncomeDate && !inputIncomeDate.value) {
+        inputIncomeDate.value = todayISO();
+      }
+      if (inputDebtPayDate && !inputDebtPayDate.value) {
+        inputDebtPayDate.value = todayISO();
+      }
 
-    return (
-      <div className="min-h-screen bg-gray-100 font-sans text-gray-800 animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-y-auto">
-        
-        {/* Header del Resumen con botón cerrar */}
-        <div className="sticky top-0 bg-gray-100/80 backdrop-blur-md pt-6 px-6 pb-4 flex justify-between items-center z-20">
-           <h2 className="text-xl font-bold text-gray-900">Vista Previa Reporte</h2>
-           <button 
-            onClick={() => setShowSummary(false)}
-            className="text-blue-600 font-medium bg-blue-50 px-4 py-2 rounded-full active:scale-95 transition-transform"
-          >
-            Cerrar
-          </button>
-        </div>
+      renderMonthChip();
+      renderSummaryChip();
+      renderIncomesList();
+      renderDebtPanel();
+      renderDebtPaymentsList();
 
-        {/* CONTENEDOR CAPTURABLE - Todo lo que esté dentro de este div saldrá en la imagen */}
-        <div ref={summaryRef} className="p-6 bg-gray-100" id="summary-content-capture">
-            <div className="mb-6 text-center">
-                <h1 className="text-3xl font-bold capitalize text-gray-900 mb-1">{currentMonthName}</h1>
-                <p className="text-gray-500">Total del mes: {formatCurrency(grandTotalMonth)}</p>
-            </div>
+      const tabButtons = document.querySelectorAll(".tab-button");
+      tabButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const target = btn.getAttribute("data-target");
+          if (!target) return;
+          setScreen(target, true);
+        });
+      });
 
-            <div className="space-y-6">
-            {/* SECCIÓN ITAÚ */}
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-orange-600 mb-4 flex items-center gap-3 border-b border-orange-100 pb-3">
-                <div className="w-4 h-4 rounded-full bg-orange-500 shadow-sm"></div>
-                Banco Itaú
-                <span className="ml-auto text-base text-gray-600 font-semibold">{formatCurrency(totalItau)}</span>
-                </h2>
-                <ul className="space-y-4 pl-2">
-                {itauPayments.length === 0 && <li className="text-gray-400 text-sm italic">Sin movimientos</li>}
-                {itauPayments.map(p => (
-                    <li key={p.id} className="text-sm flex flex-col">
-                    <span className="text-gray-900 font-semibold text-base">{p.detail}</span>
-                    <span className="text-gray-500 font-medium">{formatCurrency(p.amount)}</span>
-                    </li>
-                ))}
-                </ul>
-            </div>
+      const formIncome = document.getElementById("form-income");
+      formIncome.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const date = inputIncomeDate.value || todayISO();
+        const amountRaw = document.getElementById("income-amount").value;
+        const bank = document.getElementById("income-bank").value;
+        const detail = document.getElementById("income-detail").value.trim();
+        const isDebt = document.getElementById("income-is-debt").checked;
 
-            {/* SECCIÓN BCH */}
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-blue-800 mb-4 flex items-center gap-3 border-b border-blue-100 pb-3">
-                <div className="w-4 h-4 rounded-full bg-blue-800 shadow-sm"></div>
-                BCH
-                <span className="ml-auto text-base text-gray-600 font-semibold">{formatCurrency(granTotalBCH)}</span>
-                </h2>
-                <ul className="space-y-4 pl-2">
-                {/* Pagos de Deuda primero */}
-                {debtPayments.map(dp => (
-                    <li key={dp.id} className="text-sm flex flex-col bg-blue-50/50 p-3 rounded-2xl -ml-2">
-                        <div>
-                            <span className="text-gray-900 font-bold text-base">{dp.detail}</span>
-                            <span className="ml-2 text-xs text-red-500 font-medium bg-red-50 px-2 py-0.5 rounded-full whitespace-nowrap">
-                                Pendiente: {formatCurrency(dp.remainingBalanceSnapshot)}
-                            </span>
-                        </div>
-                        <span className="text-blue-700 font-bold mt-1">{formatCurrency(dp.amount)}</span>
-                    </li>
-                ))}
+        const amount = parseAmount(amountRaw);
+        if (isNaN(amount) || amount <= 0) {
+          alert("Ingresa un monto válido para el pago.");
+          return;
+        }
 
-                {/* Pagos normales BCH */}
-                {bchPayments.map(p => (
-                    <li key={p.id} className="text-sm flex flex-col mt-2">
-                        <span className="text-gray-900 font-semibold text-base">{p.detail}</span>
-                        <span className="text-gray-500 font-medium">{formatCurrency(p.amount)}</span>
-                    </li>
-                ))}
-                
-                {debtPayments.length === 0 && bchPayments.length === 0 && (
-                    <li className="text-gray-400 text-sm italic">Sin movimientos</li>
-                )}
-                </ul>
-            </div>
-            </div>
-             {/* Footer del reporte (visible en la imagen) */}
-            <div className="text-center mt-8 text-gray-400 text-sm">
-                Generado desde App de Pagos
-            </div>
-        </div>
-        {/* FIN CONTENEDOR CAPTURABLE */}
-        
-        {/* Botones de Acción (No salen en la imagen) */}
-        <div className="flex gap-3 px-6 mt-4 pb-24">
-            {/* Botón Compartir Texto */}
-            <button 
-            onClick={() => {
-                let text = `*Resumen ${currentMonthName}*\n\n*BCO ITAÚ (${formatCurrency(totalItau)})*\n`;
-                itauPayments.forEach(p => text += `- ${p.detail}: ${formatCurrency(p.amount)}\n`);
-                text += `\n*BCH (${formatCurrency(granTotalBCH)})*\n`;
-                debtPayments.forEach(p => text += `✅ ${p.detail} (Quedan: ${formatCurrency(p.remainingBalanceSnapshot)}); Monto: ${formatCurrency(p.amount)}\n`);
-                bchPayments.forEach(p => text += `- ${p.detail}: ${formatCurrency(p.amount)}\n`);
-                text += `\n*TOTAL MES: ${formatCurrency(grandTotalMonth)}*`;
-                
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                alert("Texto copiado al portapapeles");
-            }}
-            className="flex-1 bg-gray-200 text-gray-800 py-4 rounded-2xl font-semibold active:scale-95 transition-transform flex justify-center items-center gap-2"
-            >
-                <Copy size={20} />
-                Copiar Texto
-            </button>
+        state.incomes.push({
+          id: Date.now().toString() + Math.random().toString(16).slice(2),
+          date,
+          amount,
+          bank,
+          detail,
+          isDebtPayment: isDebt
+        });
 
-            {/* Nuevo Botón Compartir Imagen */}
-            <button 
-                onClick={handleShareImage}
-                disabled={isGeneratingImage}
-                className={`flex-[1.5] text-white py-4 rounded-2xl font-bold text-lg active:scale-95 transition-transform flex justify-center items-center gap-2 shadow-lg shadow-blue-200 ${isGeneratingImage ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600'}`}
-            >
-                {isGeneratingImage ? (
-                    <>Generando...</>
-                ) : (
-                    <><Share size={22} strokeWidth={2.5} /> Compartir Imagen</>
-                )}
-            </button>
-        </div>
-      </div>
-    );
-  }
+        saveState();
 
-  // --- RENDER PRINCIPAL ---
-  return (
-    <div className="flex flex-col h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden">
-      
-      {/* HEADER MODIFICADO CON BOTÓN REPORTE */}
-      <div className="pt-14 px-6 pb-4 bg-white/80 backdrop-blur-md border-b border-gray-200 z-10 sticky top-0 flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">
-            {activeTab === 'liquidacion' ? 'Pagos' : 'Deudas'}
-        </h1>
+        document.getElementById("income-amount").value = "";
+        document.getElementById("income-detail").value = "";
+        document.getElementById("income-is-debt").checked = false;
 
-        {/* Botón Reporte (solo visible en tab Liquidación) */}
-        {activeTab === 'liquidacion' && (
-            <button
-                onClick={() => setShowSummary(true)}
-                className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-sm active:scale-95 transition-transform flex items-center gap-2"
-            >
-                <FileText size={18} strokeWidth={2.5} />
-                Reporte
-            </button>
-        )}
-      </div>
+        renderSummaryChip();
+        renderIncomesList();
+      });
 
-      {/* CONTENIDO SCROLLEABLE */}
-      <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-6">
-        
-        {activeTab === 'liquidacion' && (
-          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-            {/* Tarjeta de Ingreso */}
-            <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-              <label className="block text-sm font-medium text-gray-500 mb-1 ml-1">Monto</label>
-              <div className="relative mb-4">
-                <span className="absolute left-4 top-3.5 text-gray-400 font-semibold">$</span>
-                <input 
-                  type="number" 
-                  value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
-                  placeholder="0"
-                  className="w-full bg-gray-50 rounded-2xl py-3 pl-8 pr-4 text-xl font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
+      const formDebtInitial = document.getElementById("form-debt-initial");
+      formDebtInitial.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const raw = document.getElementById("debt-initial").value;
+        const amount = parseAmount(raw);
+        if (isNaN(amount) || amount < 0) {
+          alert("Ingresa un saldo inicial válido.");
+          return;
+        }
+        state.debt.initialBalance = amount;
+        saveState();
+        renderDebtPanel();
+      });
 
-              <label className="block text-sm font-medium text-gray-500 mb-2 ml-1">Cuenta Destino</label>
-              <div className="flex gap-2 mb-4">
-                <button 
-                  onClick={() => setPaymentForm({...paymentForm, account: 'Itaú'})}
-                  className={`flex-1 py-3 rounded-xl font-medium transition-all ${paymentForm.account === 'Itaú' ? 'bg-orange-100 text-orange-700 border-2 border-orange-200 shadow-sm' : 'bg-gray-50 text-gray-500 border border-transparent'}`}
-                >
-                  Itaú
-                </button>
-                <button 
-                  onClick={() => setPaymentForm({...paymentForm, account: 'BCH'})}
-                  className={`flex-1 py-3 rounded-xl font-medium transition-all ${paymentForm.account === 'BCH' ? 'bg-blue-100 text-blue-800 border-2 border-blue-200 shadow-sm' : 'bg-gray-50 text-gray-500 border border-transparent'}`}
-                >
-                  BCH
-                </button>
-              </div>
+      const formDebtPayment = document.getElementById("form-debt-payment");
+      formDebtPayment.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const date = inputDebtPayDate.value || todayISO();
+        const amountRaw = document.getElementById("debt-payment-amount").value;
+        const detail = document
+          .getElementById("debt-payment-detail")
+          .value.trim();
 
-              <label className="block text-sm font-medium text-gray-500 mb-1 ml-1">Detalle</label>
-              <input 
-                type="text" 
-                value={paymentForm.detail}
-                onChange={(e) => setPaymentForm({...paymentForm, detail: e.target.value})}
-                placeholder="Ej: Supermercado..."
-                className="w-full bg-gray-50 rounded-2xl py-3 px-4 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
+        const amount = parseAmount(amountRaw);
+        if (isNaN(amount) || amount <= 0) {
+          alert("Ingresa un monto de pago válido.");
+          return;
+        }
 
-              <button 
-                onClick={handleAddPayment}
-                className="w-full bg-black text-white py-3.5 rounded-2xl font-semibold text-lg active:scale-95 transition-transform shadow-lg shadow-gray-200"
-              >
-                Agregar Pago
-              </button>
-            </div>
+        state.debt.payments.push({
+          id: Date.now().toString() + Math.random().toString(16).slice(2),
+          date,
+          amount,
+          detail
+        });
 
-            {/* Lista de Pagos Recientes */}
-            <div className="mt-6">
-              <div className="flex justify-between items-center px-2 mb-2">
-                <h3 className="text-lg font-semibold text-gray-700">Movimientos del mes</h3>
-                {payments.length > 0 && (
-                  <button
-                    onClick={resetPayments}
-                    className="text-red-500 hover:text-red-700 text-sm font-medium p-1 flex items-center gap-1 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                    Limpiar
-                  </button>
-                )}
-              </div>
-              
-              <div className="space-y-3">
-                {payments.length === 0 && <p className="text-center text-gray-400 py-4">No hay pagos registrados</p>}
-                {[...payments].reverse().map(payment => (
-                  <div key={payment.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center group">
-                    <div>
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${payment.account === 'Itaú' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-800'}`}>
-                          {payment.account}
-                        </span>
-                        <span className="text-gray-900 font-medium">{payment.detail}</span>
-                      </div>
-                      <p className="text-gray-500 text-sm">{formatCurrency(payment.amount)}</p>
-                    </div>
-                    <button onClick={() => deletePayment(payment.id)} className="text-gray-300 hover:text-red-500 p-2">
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        saveState();
 
-        {activeTab === 'deuda' && (
-          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-            {/* Configuración Deuda Inicial */}
-            {!debtConfig.set ? (
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 text-center">
-                <h3 className="text-lg font-semibold mb-2">Configurar Deuda Inicial</h3>
-                <p className="text-gray-500 text-sm mb-4">Ingresa el monto total adeudado para comenzar a rastrear.</p>
-                <div className="relative mb-4">
-                  <span className="absolute left-4 top-3.5 text-gray-400 font-semibold">$</span>
-                  <input 
-                    type="number" 
-                    value={initialDebtInput}
-                    onChange={(e) => setInitialDebtInput(e.target.value)}
-                    className="w-full bg-gray-50 rounded-2xl py-3 pl-8 pr-4 text-xl font-semibold text-center focus:outline-none"
-                    placeholder="0"
-                  />
-                </div>
-                <button onClick={setInitialDebt} className="w-full bg-blue-600 text-white py-3 rounded-2xl font-semibold">
-                  Establecer Deuda
-                </button>
-              </div>
-            ) : (
-              <>
-                {/* Tarjeta de Estado de Deuda */}
-                <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 shadow-lg text-white mb-6 relative overflow-hidden">
-                  <div className="relative z-10">
-                    <p className="text-gray-400 text-sm font-medium mb-1">Saldo Pendiente</p>
-                    <h2 className="text-4xl font-bold mb-4 tracking-tight">{formatCurrency(currentDebt)}</h2>
-                    <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-green-400 transition-all duration-1000"
-                        style={{ width: `${Math.min(100, (totalDebtPaid / debtConfig.initial) * 100)}%` }}
-                      ></div>
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-400 mt-2">
-                      <span>Pagado: {formatCurrency(totalDebtPaid)}</span>
-                      <span>Total: {formatCurrency(debtConfig.initial)}</span>
-                    </div>
-                  </div>
-                  {/* Botón para Reinicio Completo de Deuda (Deuda Inicial + Pagos) */}
-                  <button onClick={resetDebt} className="absolute top-4 right-4 text-gray-500 hover:text-white">
-                      <Settings size={18} />
-                  </button>
-                </div>
+        document.getElementById("debt-payment-amount").value = "";
+        document.getElementById("debt-payment-detail").value = "";
+        if (!inputDebtPayDate.value) {
+          inputDebtPayDate.value = todayISO();
+        }
 
-                {/* Formulario Pago Deuda */}
-                <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-6">
-                  <h3 className="font-semibold text-gray-900 mb-3">Registrar Abono</h3>
-                  <div className="flex gap-3 mb-3">
-                     <div className="relative flex-1">
-                        <span className="absolute left-3 top-3 text-gray-400">$</span>
-                        <input 
-                          type="number" 
-                          value={debtForm.amount}
-                          onChange={(e) => setDebtForm({...debtForm, amount: e.target.value})}
-                          placeholder="Monto"
-                          className="w-full bg-gray-50 rounded-xl py-2.5 pl-6 pr-3 font-semibold focus:outline-none"
-                        />
-                      </div>
-                      <input 
-                        type="text" 
-                        value={debtForm.detail}
-                        onChange={(e) => setDebtForm({...debtForm, detail: e.target.value})}
-                        placeholder="Detalle (Opcional)"
-                        className="flex-[1.5] bg-gray-50 rounded-xl py-2.5 px-3 focus:outline-none"
-                      />
-                  </div>
-                  <button 
-                    onClick={handleAddDebtPayment}
-                    className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold active:scale-95 transition-transform"
-                  >
-                    Ingresar Pago
-                  </button>
-                </div>
+        renderDebtPanel();
+        renderDebtPaymentsList();
+      });
 
-                {/* Historial Deuda */}
-                <div className="flex justify-between items-center px-2 mb-2">
-                  <h3 className="text-lg font-semibold text-gray-700">Historial</h3>
-                  {/* Botón para Reinicio Parcial de Deuda (Solo Historial de Pagos) */}
-                  {debtPayments.length > 0 && (
-                    <button
-                      onClick={resetDebtPaymentsOnly}
-                      className="text-red-500 hover:text-red-700 text-sm font-medium p-1 flex items-center gap-1 transition-colors"
-                    >
-                      <Trash2 size={16} />
-                      Limpiar Historial
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-3">
-                   {debtPayments.length === 0 && <p className="text-center text-gray-400 text-sm">No hay abonos registrados</p>}
-                   {[...debtPayments].reverse().map(payment => (
-                    <div key={payment.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
-                      <div>
-                        <p className="text-gray-900 font-medium">{payment.detail}</p>
-                        <p className="text-gray-400 text-xs">
-                           Saldo restante tras pago: {formatCurrency(payment.remainingBalanceSnapshot)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                         <span className="block text-green-600 font-semibold">+{formatCurrency(payment.amount)}</span>
-                         <button onClick={() => deleteDebtPayment(payment.id)} className="text-xs text-red-300 mt-1">Eliminar</button>
-                      </div>
-                    </div>
-                   ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+      const btnOpenReport = document.getElementById("btn-open-report");
+      btnOpenReport.addEventListener("click", () => {
+        buildReportContent();
+        setScreen("screen-report", false);
+      });
 
-      {/* BOTTOM NAVIGATION (TAB BAR) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 pb-8 pt-2 px-6 flex justify-around items-end z-50 shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
-        <button 
-          onClick={() => setActiveTab('liquidacion')}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'liquidacion' ? 'text-blue-600 -translate-y-1' : 'text-gray-400'}`}
-        >
-          <div className={`p-2 rounded-2xl transition-all ${activeTab === 'liquidacion' ? 'bg-blue-50' : 'bg-transparent'}`}>
-            <Wallet size={24} strokeWidth={activeTab === 'liquidacion' ? 2.5 : 2} />
-          </div>
-          <span className="text-xs font-medium">Pagos</span>
-        </button>
+      const btnBackFromReport = document.getElementById("btn-back-from-report");
+      btnBackFromReport.addEventListener("click", () => {
+        setScreen(currentTabId, false);
+      });
 
-        <button 
-          onClick={() => setActiveTab('deuda')}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'deuda' ? 'text-blue-600 -translate-y-1' : 'text-gray-400'}`}
-        >
-          <div className={`p-2 rounded-2xl transition-all ${activeTab === 'deuda' ? 'bg-blue-50' : 'bg-transparent'}`}>
-            <CreditCard size={24} strokeWidth={activeTab === 'deuda' ? 2.5 : 2} />
-          </div>
-          <span className="text-xs font-medium">Deudas</span>
-        </button>
-      </div>
-
-    </div>
-  );
-}
+      const btnShareReport = document.getElementById("btn-share-report");
+      btnShareReport.addEventListener("click", shareReportImage);
+    });
+  </script>
+</body>
+</html>
