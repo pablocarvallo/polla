@@ -292,7 +292,7 @@
                                         <span className="absolute left-4 top-4 text-slate-400 text-lg">$</span>
                                         <input 
                                             type="number" 
-                                            inputMode="numeric" {/* AÑADIDO: Teclado numérico optimizado */}
+                                            inputMode="numeric"
                                             value={amount}
                                             onChange={(e) => setAmount(e.target.value)}
                                             className="ios-input pl-8 font-semibold text-slate-800"
@@ -330,13 +330,13 @@
                                         disabled={!amount || !detail}
                                         className="w-full bg-slate-900 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg ios-btn disabled:opacity-50"
                                     >
-                                        Agregar pago
+                                        Agregar Pago
                                     </button>
                                 </div>
                                 
                                 {/* Historial de Pagos del Mes (Nueva Sección para feedback) */}
                                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                                    <h3 className="text-xl font-bold text-slate-800 mb-4">Pagos {getCurrentMonthYear()}</h3>
+                                    <h3 className="text-xl font-bold text-slate-800 mb-4">Pagos Registrados ({getCurrentMonthYear()})</h3>
                                     <ul className="space-y-3">
                                         {normalTransactions.map(t => (
                                             <li key={t.id} className="flex justify-between items-center text-sm border-b border-gray-100 pb-3 last:border-b-0">
@@ -416,14 +416,14 @@
                                 )}
 
                                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                                    <h3 className="text-lg font-bold text-slate-800 mb-4">Registrar abono</h3>
+                                    <h3 className="text-lg font-bold text-slate-800 mb-4">Registrar Abono</h3>
                                     
                                     <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Monto a pagar</label>
                                     <div className="relative mb-4">
                                         <span className="absolute left-4 top-4 text-slate-400 text-lg">$</span>
                                         <input 
                                             type="number" 
-                                            inputMode="numeric" {/* AÑADIDO: Teclado numérico optimizado */}
+                                            inputMode="numeric"
                                             value={debtPayment}
                                             onChange={(e) => setDebtPayment(e.target.value)}
                                             className="ios-input pl-8 font-semibold text-slate-800"
@@ -445,7 +445,7 @@
                                         disabled={!debtPayment || !debtDetail || debtBalance <= 0 || isSettingDebt}
                                         className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg ios-btn disabled:opacity-50 disabled:bg-slate-300"
                                     >
-                                        Descontar deuda
+                                        Descontar Deuda
                                     </button>
                                 </div>
 
