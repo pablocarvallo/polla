@@ -5,29 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Finanzas Familiares</title>
     
-    <!-- Configuración PWA para iOS -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Pagos">
     
-    <!-- Icono solicitado -->
     <link rel="apple-touch-icon" href="polla.png">
     <link rel="icon" type="image/png" href="polla.png">
 
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- HTML2Canvas para capturas -->
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
     <style>
@@ -151,12 +144,28 @@
                 setDetail('');
             };
 
+            // NUEVA FUNCIÓN: Eliminar transacción individual
+            const deleteTransaction = (id) => {
+                if(confirm('¿Estás seguro de que deseas eliminar este registro?')) {
+                    setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
+                }
+            };
+
             const resetSettlement = () => {
-                // Modificamos el confirm para usar un modal custom si tuviéramos más complejidad,
-                // pero por ahora mantenemos confirm()
-                if(confirm('¿Borrar todos los registros de liquidación de este mes? (Esto no afecta los abonos de deuda)')) {
-                    // Mantenemos solo las transacciones de deuda.
+                if(confirm('¿ESTÁS SEGURO? \n\nEsto borrará TODOS los registros de gastos (Liquidación) de la historia. \n\n(Los registros de deuda se mantendrán)')) {
+                    // Mantenemos solo las transacciones de tipo 'debt'
                     setTransactions(prevTransactions => prevTransactions.filter(t => t.type === 'debt')); 
+                }
+            };
+            
+            // Función: Eliminar pago de deuda con corrección de saldo
+            const deleteDebtPayment = (id, amount) => {
+                if(confirm('¿Estás seguro de que deseas eliminar este abono? Se sumará ' + formatCurrency(amount) + ' al saldo de deuda pendiente.')) {
+                    // 1. Corregir el saldo adeudado (reembolsar el pago)
+                    setDebtBalance(prevBalance => prevBalance + amount);
+                    
+                    // 2. Eliminar la transacción
+                    setTransactions(prevTransactions => prevTransactions.filter(t => t.id !== id));
                 }
             };
 
@@ -176,7 +185,7 @@
                 const newBalance = debtBalance - payAmount;
                 setDebtBalance(newBalance);
 
-                // Agregar transacción automática al historial (banco BCH por defecto según ejemplo)
+                // Agregar transacción automática al historial
                 const newTransaction = {
                     id: Date.now(),
                     date: new Date().toISOString(),
@@ -184,7 +193,7 @@
                     detail: debtDetail,
                     account: 'BCH', 
                     type: 'debt',
-                    remainingSnapshot: newBalance // Guardamos el saldo que quedó en ese momento
+                    remainingSnapshot: newBalance
                 };
                 setTransactions([...transactions, newTransaction]);
 
@@ -195,7 +204,6 @@
             const resetDebt = () => {
                 if(confirm('¿Reiniciar el saldo de deuda a cero? Esto es irreversible.')) {
                     setDebtBalance(0);
-                    // Opcionalmente, puedes activar el modo de configuración para ingresar un nuevo saldo inicial
                     setIsSettingDebt(true); 
                 }
             };
@@ -207,15 +215,13 @@
                 if (reportRef.current) {
                     try {
                         const canvas = await html2canvas(reportRef.current, {
-                            scale: 2, // Mejor calidad
+                            scale: 2,
                             backgroundColor: '#FFFFFF',
                             logging: false
                         });
                         
                         canvas.toBlob(async (blob) => {
                             const file = new File([blob], "resumen_pago.png", { type: "image/png" });
-                            
-                            // Intentar API nativa de compartir
                             if (navigator.share) {
                                 try {
                                     await navigator.share({
@@ -223,8 +229,6 @@
                                         title: 'Resumen de Pagos',
                                     });
                                 } catch (err) {
-                                    console.log("Error sharing", err);
-                                    // Fallback: abrir imagen en nueva pestaña
                                     const url = URL.createObjectURL(blob);
                                     window.open(url, '_blank');
                                 }
@@ -234,17 +238,12 @@
                             }
                         });
                     } catch (error) {
-                        // En lugar de alert, usamos console.error o un modal custom.
                         console.error("Error al generar imagen:", error);
-                        // Usamos alert por simplicidad en este entorno
-                        /* Usar custom modal:
-                        showCustomAlert("Error al generar imagen. Inténtalo de nuevo.");
-                        */
                     }
                 }
             };
 
-            // Transacciones solo del mes actual
+            // Filtros de fecha y tipo
             const transactionsThisMonth = transactions.filter(t => {
                 const tDate = new Date(t.date);
                 const now = new Date();
@@ -253,7 +252,11 @@
 
             const normalTransactions = transactionsThisMonth
                 .filter(t => t.type === 'normal')
-                .sort((a, b) => new Date(b.date) - new Date(a.date)); // Ordenar por fecha (más reciente primero)
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            const debtPayments = transactionsThisMonth
+                .filter(t => t.type === 'debt')
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
 
             const itauTransactions = transactionsThisMonth.filter(t => t.account === 'Itaú');
             const bchTransactions = transactionsThisMonth.filter(t => t.account === 'BCH');
@@ -334,7 +337,7 @@
                                     </button>
                                 </div>
                                 
-                                {/* Historial de Pagos del Mes (Nueva Sección para feedback) */}
+                                {/* Historial de Pagos (MODIFICADO) */}
                                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
                                     <h3 className="text-xl font-bold text-slate-800 mb-4">Pagos Registrados ({getCurrentMonthYear()})</h3>
                                     <ul className="space-y-3">
@@ -346,7 +349,17 @@
                                                         {t.account}
                                                     </span>
                                                 </div>
-                                                <span className="font-bold text-lg">{formatCurrency(t.amount)}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-bold text-lg">{formatCurrency(t.amount)}</span>
+                                                    {/* BOTÓN DE ELIMINAR INDIVIDUAL */}
+                                                    <button 
+                                                        onClick={() => deleteTransaction(t.id)}
+                                                        className="text-gray-400 p-2 rounded-full hover:bg-red-50 hover:text-red-500 active:bg-red-100 transition-colors ios-btn"
+                                                        aria-label="Eliminar registro"
+                                                    >
+                                                        <TrashIcon size={18} />
+                                                    </button>
+                                                </div>
                                             </li>
                                         ))}
                                         {normalTransactions.length === 0 && (
@@ -358,21 +371,21 @@
                                 <div className="flex justify-center">
                                     <button 
                                         onClick={resetSettlement}
-                                        className="text-red-500 flex items-center space-x-2 px-4 py-2 rounded-full bg-red-50 text-sm font-medium ios-btn"
+                                        className="text-red-500 flex items-center space-x-2 px-6 py-3 rounded-full bg-red-50 text-sm font-medium ios-btn border border-red-100 shadow-sm"
                                     >
                                         <TrashIcon size={16} />
-                                        <span>Resetear Liquidación</span>
+                                        <span>Eliminar Todo (Liquidación)</span>
                                     </button>
                                 </div>
                                 
-                                <div className="h-10"></div> {/* Espaciador */}
+                                <div className="h-10"></div>
                             </div>
                         )}
 
                         {/* Pestaña 2: Deudas */}
                         {activeTab === 'debt' && (
                             <div className="space-y-6">
-                                {/* Tarjeta de Saldo Actual */}
+                                {/* Tarjeta de Saldo */}
                                 <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-3xl shadow-lg text-white relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full transform translate-x-10 -translate-y-10"></div>
                                     <h2 className="text-indigo-100 font-medium text-sm mb-1">Deuda Total Pendiente</h2>
@@ -448,6 +461,36 @@
                                         Descontar Deuda
                                     </button>
                                 </div>
+                                
+                                {/* Historial de Abonos */}
+                                <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                                    <h3 className="text-xl font-bold text-slate-800 mb-4">Abonos Registrados ({getCurrentMonthYear()})</h3>
+                                    <ul className="space-y-3">
+                                        {debtPayments.map(t => (
+                                            <li key={t.id} className="flex justify-between items-center text-sm border-b border-gray-100 pb-3 last:border-b-0">
+                                                <div className="flex flex-col">
+                                                    <span className="text-gray-700 font-medium">{t.detail}</span>
+                                                    <span className={`text-xs font-semibold text-indigo-500`}>
+                                                        {t.account}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-bold text-lg">{formatCurrency(t.amount)}</span>
+                                                    <button 
+                                                        onClick={() => deleteDebtPayment(t.id, t.amount)}
+                                                        className="text-red-400 p-2 rounded-full hover:bg-red-50 active:bg-red-100 transition-colors ios-btn text-xl"
+                                                        aria-label="Eliminar abono de deuda"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </li>
+                                        ))}
+                                        {debtPayments.length === 0 && (
+                                            <li className="text-center text-gray-400 italic py-4">Aún no hay abonos de deuda este mes.</li>
+                                        )}
+                                    </ul>
+                                </div>
 
                                 <div className="flex justify-center">
                                     <button 
@@ -465,7 +508,6 @@
 
                     {/* Barra de Navegación Inferior Estilo iOS 18 */}
                     <div className="fixed bottom-0 left-0 right-0 z-20">
-                        {/* Gradiente para suavizar el corte */}
                         <div className="h-12 bg-gradient-to-t from-[#F2F2F7] to-transparent pointer-events-none"></div>
                         
                         <div className="bg-white/80 backdrop-blur-xl border-t border-slate-200 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-3 px-6 flex justify-around items-center">
