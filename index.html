@@ -70,6 +70,13 @@
             body {
                 padding-top: env(safe-area-inset-top);
             }
+            /* SOLUCIÓN: Asegurar que los inputs capturan el toque y el foco en modo PWA */
+            input, textarea {
+                -webkit-user-select: text !important;
+                user-select: text !important;
+                cursor: auto !important;
+                -webkit-user-modify: read-write-plaintext-only !important;
+            }
         }
     </style>
 </head>
