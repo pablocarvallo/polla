@@ -10,9 +10,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Pagos">
     
-    <!-- Icono solicitado -->
-    <link rel="apple-touch-icon" href="polla.png">
-    <link rel="icon" type="image/png" href="polla.png">
+    <!-- Icono solicitado (Usando un placeholder) -->
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/4F46E5/ffffff?text=F">
+    <link rel="icon" type="image/png" href="https://placehold.co/192x192/4F46E5/ffffff?text=F">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -25,651 +25,570 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- HTML2Canvas para capturas -->
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-
+    <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
+    
+    <!-- html2canvas for DOM capture (AÑADIDO/VERIFICADO) -->
+    <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    
     <style>
-        /* Estilos base para sensación nativa */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #F2F2F7; /* iOS System Gray 6 */
-            -webkit-tap-highlight-color: transparent;
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-        
-        /* Ocultar scrollbar pero permitir scroll */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        /* Animación suave estilo iOS */
+        /* Estilos de botones con efecto háptico/iOS */
         .ios-btn {
-            transition: transform 0.1s ease, opacity 0.2s;
+            transition: all 0.15s ease-out;
+            transform: translateZ(0); 
         }
         .ios-btn:active {
-            transform: scale(0.96);
-            opacity: 0.8;
-        }
-
-        /* Input estilo iOS */
-        .ios-input {
-            background-color: #FFFFFF;
-            border-radius: 12px;
-            padding: 16px;
-            font-size: 17px;
-            border: 1px solid #E5E5EA;
-            width: 100%;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .ios-input:focus {
-            border-color: #007AFF;
+            transform: scale(0.98);
         }
         
-        /* Fix para PWA independiente */
-        @media all and (display-mode: standalone) {
-            body {
-                padding-top: env(safe-area-inset-top);
-            }
+        /* Estilos para el Toast/Alerta */
+        #toast-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 50;
+            pointer-events: none; /* Permite clicks a través del toast */
+        }
+        .toast {
+            animation: fadeInOut 3s ease-in-out forwards;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-20px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+        
+        /* Ajuste para el scroll en iOS y fondo */
+        body {
+            overscroll-behavior: contain;
+            background-color: #f3f4f6;
+            padding-bottom: 5rem; /* Espacio para la barra de navegación */
+        }
+
+        /* Oculta flechas de input type="tel" */
+        input[type="tel"] {
+            -moz-appearance: textfield;
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
     </style>
 </head>
 <body>
     <div id="root"></div>
+    <div id="toast-container"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useMemo, useCallback, useRef } = React;
+        const { 
+            Send: ShareIcon, Loader2: LoadingIcon, Banknote: ItauIcon, PiggyBank: BchIcon, 
+            CheckCircle: SuccessIcon, XCircle: ErrorIcon, Info: InfoIcon, 
+            List: ListIcon, BarChart: SummaryIcon, TrendingDown: DebtIcon, Clock: ScheduledIcon
+        } = lucide.icons;
 
-        // Iconos
-        const WalletIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>;
-        const CreditCardIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>;
-        const ShareIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>;
-        const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
-        const XIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
-        const AlertIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>;
+        // --- Datos de ejemplo y Utilidades ---
+        const initialData = {
+            'Tarjeta de Crédito IT': 600000,
+            'Pago Cuentas': 50000,
+            'Gasolina': 100000,
+            'Supermercado': 300000,
+            'Farmacia': 80000,
+            'Varios/Ahorro': 120000,
+        };
+        
+        const initialDebts = [
+            { id: 1, description: 'Crédito Hipotecario', amount: 450000, date: '2025-11-05' },
+            { id: 2, description: 'Préstamo Auto', amount: 120000, date: '2025-11-15' },
+        ];
+        
+        const initialScheduled = [
+            { id: 1, description: 'Sueldo - Flor', amount: 2000000, date: '2025-11-30' },
+            { id: 2, description: 'Inversión ETF', amount: 150000, date: '2025-12-05' },
+        ];
 
-        // Utilidades
         const formatCurrency = (amount) => {
-            return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(amount);
+            if (typeof amount !== 'number' || isNaN(amount)) return formatCurrency(0);
+            return new Intl.NumberFormat('es-CL', {
+                style: 'currency',
+                currency: 'CLP',
+                minimumFractionDigits: 0,
+            }).format(amount);
         };
-
-        const getCurrentMonthYear = () => {
-            const date = new Date();
-            return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-        };
-
-        const App = () => {
-            const [activeTab, setActiveTab] = useState('settlement');
-            const [showReport, setShowReport] = useState(false);
+        
+        // --- Componente Toast para Mensajes de Usuario ---
+        const Toast = ({ message, type, id }) => {
+            let bgColor, IconComponent;
+            switch (type) {
+                case 'success':
+                    bgColor = 'bg-green-500';
+                    IconComponent = SuccessIcon;
+                    break;
+                case 'error':
+                    bgColor = 'bg-red-500';
+                    IconComponent = ErrorIcon;
+                    break;
+                case 'info':
+                default:
+                    bgColor = 'bg-blue-500';
+                    IconComponent = InfoIcon;
+                    break;
+            }
             
-            // Estado: Liquidación
-            const [transactions, setTransactions] = useState(() => {
-                const saved = localStorage.getItem('transactions');
-                return saved ? JSON.parse(saved) : [];
-            });
-            const [amount, setAmount] = useState('');
-            const [detail, setDetail] = useState('');
-            const [account, setAccount] = useState('Itaú');
+            return (
+                <div 
+                    id={`toast-${id}`}
+                    className={`toast flex items-center p-4 mb-4 w-full max-w-xs text-white ${bgColor} rounded-lg shadow-lg`} 
+                    role="alert"
+                >
+                    {IconComponent && <IconComponent className="w-5 h-5 mr-2" />}
+                    <div className="text-sm font-normal">{message}</div>
+                </div>
+            );
+        };
 
-            // Estado: Deudas
-            const [debtBalance, setDebtBalance] = useState(() => {
-                const saved = localStorage.getItem('debtBalance');
-                return saved ? parseFloat(saved) : 0;
-            });
-            const [debtPayment, setDebtPayment] = useState('');
-            const [debtDetail, setDebtDetail] = useState('');
-            const [initialDebtInput, setInitialDebtInput] = useState('');
-            const [isSettingDebt, setIsSettingDebt] = useState(false);
+        // --- Función para mostrar mensajes ---
+        const alertMessage = (message, type = 'info') => {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
 
-            // Estado: Confirmación de Borrado
-            const [deleteModal, setDeleteModal] = useState({ show: false, item: null });
+            const id = Date.now();
+            const toastDiv = document.createElement('div');
+            
+            // Renderizar el componente Toast en el div
+            ReactDOM.render(<Toast message={message} type={type} id={id} />, toastDiv);
+            container.appendChild(toastDiv);
 
-            // Persistencia
-            useEffect(() => {
-                localStorage.setItem('transactions', JSON.stringify(transactions));
-            }, [transactions]);
+            // Eliminar el toast después de la animación
+            setTimeout(() => {
+                toastDiv.remove();
+            }, 3000); // 3 seconds total duration
+        };
 
-            useEffect(() => {
-                localStorage.setItem('debtBalance', debtBalance.toString());
-            }, [debtBalance]);
+        // --- COMPONENTE CRUCIAL PARA LA ESTABILIDAD DEL TECLADO ---
+        // Este componente se asegura de que el valor del input esté siempre en formato
+        // de cadena RAW (sin formateo de moneda) para evitar la pérdida de foco.
+        const StableInput = ({ label, value, onChange, placeholder, type = 'text', prefix = '' }) => {
+            
+            const isNumeric = type === 'numeric' || type === 'tel';
 
-            // --- Lógica Pestaña 1: Liquidación ---
-            const addTransaction = () => {
-                if (!amount || !detail) return;
-                const newTransaction = {
-                    id: Date.now(),
-                    date: new Date().toISOString(),
-                    amount: parseInt(amount),
-                    detail,
-                    account,
-                    type: 'normal'
-                };
-                setTransactions([...transactions, newTransaction]);
-                setAmount('');
-                setDetail('');
+            const handleChange = (e) => {
+                let rawValue = e.target.value;
+
+                if (isNumeric) {
+                    // Limpia caracteres no-dígitos para entradas numéricas
+                    rawValue = rawValue.replace(/[^0-9]/g, '');
+                } 
+                // Para texto o date, se usa el valor tal cual.
+
+                onChange(rawValue);
             };
-
-            const resetSettlement = () => {
-                if(confirm('¿Borrar todos los registros de liquidación de este mes? (Esto no afecta los abonos de deuda)')) {
-                    setTransactions(prevTransactions => prevTransactions.filter(t => t.type === 'debt')); 
-                }
-            };
-
-            // --- Lógica Pestaña 2: Deudas ---
-            const handleSetDebt = () => {
-                if (initialDebtInput) {
-                    setDebtBalance(parseInt(initialDebtInput));
-                    setInitialDebtInput('');
-                    setIsSettingDebt(false);
-                }
-            };
-
-            const payDebt = () => {
-                if (!debtPayment || !debtDetail) return;
-                const payAmount = parseInt(debtPayment);
-                
-                const newBalance = debtBalance - payAmount;
-                setDebtBalance(newBalance);
-
-                const newTransaction = {
-                    id: Date.now(),
-                    date: new Date().toISOString(),
-                    amount: payAmount,
-                    detail: debtDetail,
-                    account: 'BCH', 
-                    type: 'debt',
-                    remainingSnapshot: newBalance 
-                };
-                setTransactions([...transactions, newTransaction]);
-
-                setDebtPayment('');
-                setDebtDetail('');
-            };
-
-            const resetDebt = () => {
-                if(confirm('¿Reiniciar el saldo de deuda a cero? Esto es irreversible.')) {
-                    setDebtBalance(0);
-                    setIsSettingDebt(true); 
-                }
-            };
-
-            // --- Manejo de Eliminación Individual ---
-            const initiateDelete = (item) => {
-                setDeleteModal({ show: true, item });
-            };
-
-            const confirmDelete = () => {
-                const item = deleteModal.item;
-                if (!item) return;
-
-                // 1. Eliminar de la lista de transacciones
-                setTransactions(transactions.filter(t => t.id !== item.id));
-
-                // 2. Si es un abono de deuda, sumar el monto de vuelta al saldo
-                if (item.type === 'debt') {
-                    setDebtBalance(prev => prev + item.amount);
-                }
-
-                setDeleteModal({ show: false, item: null });
-            };
-
-            const cancelDelete = () => {
-                setDeleteModal({ show: false, item: null });
-            };
-
-            // --- Cálculos de la Barra de Progreso ---
-            // Calculamos el total original implícito sumando el saldo actual + todo lo que se ha pagado históricamente (registros de deuda)
-            const totalDebtPaidHistory = transactions.filter(t => t.type === 'debt').reduce((acc, t) => acc + t.amount, 0);
-            const impliedTotalDebt = debtBalance + totalDebtPaidHistory;
-            const progressPercentage = impliedTotalDebt > 0 ? (debtBalance / impliedTotalDebt) * 100 : 0;
-
-
-            // --- Reporte ---
-            const reportRef = useRef(null);
-
-            const generateImage = async () => {
-                if (reportRef.current) {
-                    try {
-                        const canvas = await html2canvas(reportRef.current, {
-                            scale: 2, 
-                            backgroundColor: '#FFFFFF',
-                            logging: false
-                        });
-                        
-                        canvas.toBlob(async (blob) => {
-                            const file = new File([blob], "resumen_pago.png", { type: "image/png" });
-                            if (navigator.share) {
-                                try {
-                                    await navigator.share({ files: [file], title: 'Resumen de Pagos' });
-                                } catch (err) {
-                                    const url = URL.createObjectURL(blob);
-                                    window.open(url, '_blank');
-                                }
-                            } else {
-                                const url = URL.createObjectURL(blob);
-                                window.open(url, '_blank');
-                            }
-                        });
-                    } catch (error) {
-                        console.error("Error al generar imagen:", error);
-                    }
-                }
-            };
-
-            // Transacciones del mes actual
-            const transactionsThisMonth = transactions.filter(t => {
-                const tDate = new Date(t.date);
-                const now = new Date();
-                return tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
-            });
-
-            const normalTransactions = transactionsThisMonth
-                .filter(t => t.type === 'normal')
-                .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-            const itauTransactions = transactionsThisMonth.filter(t => t.account === 'Itaú');
-            const bchTransactions = transactionsThisMonth.filter(t => t.account === 'BCH');
-
-            const totalItau = itauTransactions.reduce((acc, curr) => acc + curr.amount, 0);
-            const totalBch = bchTransactions.reduce((acc, curr) => acc + curr.amount, 0);
+            
+            // Para el input numérico, mostramos la cadena de dígitos, no el formato de moneda.
+            const displayValue = isNumeric && value === 0 ? '' : String(value);
 
             return (
-                <div className="h-screen flex flex-col bg-slate-50 relative">
+                <div className="flex flex-col mb-4">
+                    <label htmlFor={label} className="text-sm font-medium text-slate-700 mb-1">{label}</label>
+                    <div className="relative">
+                        {prefix && (
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 font-bold">{prefix}</span>
+                        )}
+                        <input
+                            id={label}
+                            type={type === 'numeric' ? 'tel' : type}
+                            // FIX CRUCIAL: Binds directly to the raw string/numeric string.
+                            value={displayValue} 
+                            onChange={handleChange}
+                            className={`w-full py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-semibold transition duration-150 ease-in-out ${isNumeric ? 'text-right pr-3 pl-8' : 'pl-3 pr-3'}`}
+                            placeholder={placeholder}
+                        />
+                    </div>
+                </div>
+            );
+        };
+        
+        // --- Componente Pestaña: Deudas (DeudasTab) ---
+        const DebtsTab = ({ debts, setDebts }) => {
+            
+            const handleUpdate = (id, field, value) => {
+                setDebts(prevDebts => prevDebts.map(debt => {
+                    if (debt.id === id) {
+                        return { 
+                            ...debt, 
+                            [field]: field === 'amount' ? (value === '' ? 0 : parseInt(value, 10)) : value
+                        };
+                    }
+                    return debt;
+                }));
+            };
+            
+            const totalDeudas = useMemo(() => debts.reduce((sum, item) => sum + item.amount, 0), [debts]);
+
+            return (
+                <div className="p-4 sm:p-6">
+                    <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+                        <DebtIcon className="w-6 h-6 mr-2 text-red-600" />
+                        Deudas Pendientes
+                    </h2>
+                    <div className="bg-white p-6 rounded-2xl shadow-lg">
+                        {debts.map(debt => (
+                            <div key={debt.id} className="border-b pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
+                                <StableInput
+                                    label="Descripción"
+                                    placeholder="Nombre de la deuda"
+                                    value={debt.description}
+                                    onChange={(val) => handleUpdate(debt.id, 'description', val)}
+                                />
+                                <StableInput
+                                    label="Monto"
+                                    placeholder="0"
+                                    type="numeric"
+                                    prefix="$"
+                                    value={debt.amount}
+                                    onChange={(val) => handleUpdate(debt.id, 'amount', val)}
+                                />
+                                <StableInput
+                                    label="Fecha de Pago (Estimada)"
+                                    type="date"
+                                    value={debt.date}
+                                    onChange={(val) => handleUpdate(debt.id, 'date', val)}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-8 p-4 bg-white rounded-2xl shadow-lg flex justify-between items-center border-t-4 border-red-200">
+                        <span className="text-lg font-bold text-slate-700">Total Deudas Pendientes</span>
+                        <span className="text-xl font-extrabold text-red-600">
+                            {formatCurrency(totalDeudas)}
+                        </span>
+                    </div>
+                </div>
+            );
+        };
+        
+        // --- Componente Pestaña: Programados (ScheduledTab) ---
+        const ScheduledTab = ({ scheduled, setScheduled }) => {
+            
+            const handleUpdate = (id, field, value) => {
+                setScheduled(prevScheduled => prevScheduled.map(item => {
+                    if (item.id === id) {
+                        return { 
+                            ...item, 
+                            [field]: field === 'amount' ? (value === '' ? 0 : parseInt(value, 10)) : value
+                        };
+                    }
+                    return item;
+                }));
+            };
+
+            const totalScheduled = useMemo(() => scheduled.reduce((sum, item) => sum + item.amount, 0), [scheduled]);
+
+            return (
+                <div className="p-4 sm:p-6">
+                    <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+                        <ScheduledIcon className="w-6 h-6 mr-2 text-yellow-600" />
+                        Ingresos/Pagos Programados
+                    </h2>
+                    <div className="bg-white p-6 rounded-2xl shadow-lg">
+                        {scheduled.map(item => (
+                            <div key={item.id} className="border-b pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
+                                <StableInput
+                                    label="Descripción"
+                                    placeholder="Ej: Sueldo, Venta, Renta"
+                                    value={item.description}
+                                    onChange={(val) => handleUpdate(item.id, 'description', val)}
+                                />
+                                <StableInput
+                                    label="Monto"
+                                    placeholder="0"
+                                    type="numeric"
+                                    prefix="$"
+                                    value={item.amount}
+                                    onChange={(val) => handleUpdate(item.id, 'amount', val)}
+                                />
+                                <StableInput
+                                    label="Fecha (Estimada)"
+                                    type="date"
+                                    value={item.date}
+                                    onChange={(val) => handleUpdate(item.id, 'date', val)}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-8 p-4 bg-white rounded-2xl shadow-lg flex justify-between items-center border-t-4 border-yellow-200">
+                        <span className="text-lg font-bold text-slate-700">Total Programado</span>
+                        <span className="text-xl font-extrabold text-yellow-600">
+                            {formatCurrency(totalScheduled)}
+                        </span>
+                    </div>
+                </div>
+            );
+        };
+
+
+        // --- Componente Resumen (SummaryTab) - Ligeramente modificado para incluir gastos iniciales ---
+        const SummaryTab = ({ gastos, totalGeneral, totalItau, totalBch, generateImage, isGenerating }) => {
+            const cardRef = useRef(null); 
+            
+            // Función auxiliar para descargar la imagen (Fallback)
+            const downloadImage = (dataUrl) => {
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = 'resumen_finanzas.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                alertMessage("Imagen descargada exitosamente. (Fallback)", "success");
+            };
+
+            // --- FUNCIÓN MEJORADA PARA GENERAR Y COMPARTIR IMAGEN ---
+            const handleGenerateImage = useCallback(async () => {
+                if (!cardRef.current) {
+                    alertMessage("Error interno: No se encontró el contenedor de resumen.", "error");
+                    return;
+                }
+                
+                generateImage(true);
+                
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+
+                    const canvas = await html2canvas(cardRef.current, {
+                        scale: 2, 
+                        useCORS: true, 
+                        logging: false
+                    });
                     
-                    {/* Header Dinámico */}
-                    <div className="pt-14 pb-4 px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b border-slate-200 flex justify-between items-center">
-                        <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
-                            {activeTab === 'settlement' ? 'Liquidación' : 'Deudas'}
-                        </h1>
-                        {activeTab === 'settlement' && (
-                            <button 
-                                onClick={() => setShowReport(true)}
-                                className="text-blue-600 font-semibold text-lg ios-btn"
-                            >
-                                Reporte
-                            </button>
-                        )}
-                    </div>
+                    canvas.toBlob(async (blob) => {
+                        if (!blob) {
+                            console.error("Failed to generate image Blob.");
+                            alertMessage("Error al generar la imagen. Inténtalo de nuevo.", "error");
+                            generateImage(false);
+                            return;
+                        }
 
-                    {/* Contenido Principal */}
-                    <div className="flex-1 overflow-y-auto no-scrollbar pb-32 px-4 pt-6">
+                        if (navigator.share) {
+                            const file = new File([blob], 'resumen_finanzas.png', { type: 'image/png' });
+                            try {
+                                await navigator.share({
+                                    files: [file],
+                                    title: 'Resumen de Finanzas Familiares',
+                                    text: 'Aquí está mi resumen de gastos del mes.',
+                                });
+                                alertMessage("Resumen compartido exitosamente.", "success");
+                            } catch (error) {
+                                if (error.name !== 'AbortError') {
+                                    console.error('Error al compartir (Web Share API):', error);
+                                    downloadImage(canvas.toDataURL('image/png'));
+                                } else {
+                                    alertMessage("Compartir cancelado.", "info");
+                                }
+                            }
+                        } else {
+                            downloadImage(canvas.toDataURL('image/png'));
+                        }
+
+                        generateImage(false);
                         
-                        {/* Pestaña 1: Liquidación */}
-                        {activeTab === 'settlement' && (
-                            <div className="space-y-6">
-                                {/* Formulario de Liquidación */}
-                                <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                                    <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Monto a pagar</label>
-                                    <div className="relative mb-4">
-                                        <span className="absolute left-4 top-4 text-slate-400 text-lg">$</span>
-                                        <input 
-                                            type="number" 
-                                            inputMode="numeric"
-                                            value={amount}
-                                            onChange={(e) => setAmount(e.target.value)}
-                                            className="ios-input pl-8 font-semibold text-slate-800"
-                                            placeholder="0"
-                                        />
-                                    </div>
+                    }, 'image/png');
 
-                                    <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Destino</label>
-                                    <div className="grid grid-cols-2 gap-3 mb-4">
-                                        <button 
-                                            onClick={() => setAccount('Itaú')}
-                                            className={`py-3 rounded-xl font-medium transition-all ${account === 'Itaú' ? 'bg-orange-500 text-white shadow-md transform scale-105' : 'bg-slate-100 text-slate-500'}`}
-                                        >
-                                            Itaú
-                                        </button>
-                                        <button 
-                                            onClick={() => setAccount('BCH')}
-                                            className={`py-3 rounded-xl font-medium transition-all ${account === 'BCH' ? 'bg-blue-600 text-white shadow-md transform scale-105' : 'bg-slate-100 text-slate-500'}`}
-                                        >
-                                            BCH
-                                        </button>
-                                    </div>
+                } catch (error) {
+                    console.error("Error al capturar el DOM:", error);
+                    alertMessage("Ocurrió un error inesperado al preparar la imagen.", "error");
+                    generateImage(false);
+                }
+            }, [gastos]);
 
-                                    <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Detalle</label>
-                                    <input 
-                                        type="text" 
-                                        value={detail}
-                                        onChange={(e) => setDetail(e.target.value)}
-                                        className="ios-input mb-6"
-                                        placeholder="Ej: Compras Supermercado"
-                                    />
 
-                                    <button 
-                                        onClick={addTransaction}
-                                        disabled={!amount || !detail}
-                                        className="w-full bg-slate-900 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg ios-btn disabled:opacity-50"
-                                    >
-                                        Agregar Pago
-                                    </button>
-                                </div>
-                                
-                                {/* Historial de Pagos del Mes */}
-                                <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                                    <h3 className="text-xl font-bold text-slate-800 mb-4">Pagos Registrados ({getCurrentMonthYear()})</h3>
-                                    <ul className="space-y-3">
-                                        {normalTransactions.map(t => (
-                                            <li key={t.id} className="flex justify-between items-center text-sm border-b border-gray-100 pb-3 last:border-b-0">
-                                                <div className="flex flex-col">
-                                                    <span className="text-gray-700 font-medium">{t.detail}</span>
-                                                    <span className={`text-xs font-semibold ${t.account === 'Itaú' ? 'text-orange-500' : 'text-blue-600'}`}>
-                                                        {t.account}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="font-bold text-lg">{formatCurrency(t.amount)}</span>
-                                                    <button 
-                                                        onClick={() => initiateDelete(t)} 
-                                                        className="text-red-400 p-2 hover:bg-red-50 rounded-full transition-colors"
-                                                    >
-                                                        <TrashIcon />
-                                                    </button>
-                                                </div>
-                                            </li>
-                                        ))}
-                                        {normalTransactions.length === 0 && (
-                                            <li className="text-center text-gray-400 italic py-4">Aún no hay pagos de liquidación este mes.</li>
-                                        )}
-                                    </ul>
-                                </div>
+            return (
+                <div className="p-4 sm:p-6">
+                    <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+                        <SummaryIcon className="w-6 h-6 mr-2 text-blue-600" />
+                        Resumen de Gastos
+                    </h2>
 
-                                <div className="flex justify-center">
-                                    <button 
-                                        onClick={resetSettlement}
-                                        className="text-red-500 flex items-center space-x-2 px-4 py-2 rounded-full bg-red-50 text-sm font-medium ios-btn"
-                                    >
-                                        <TrashIcon size={16} />
-                                        <span>Resetear Liquidación</span>
-                                    </button>
-                                </div>
-                                
-                                <div className="h-10"></div>
+                    <div id="finanzas-card" ref={cardRef} className="bg-white rounded-3xl shadow-xl overflow-hidden">
+                        <div className="p-6 bg-blue-600 rounded-t-3xl flex items-center justify-between text-white">
+                            <div>
+                                <h1 className="text-xl font-bold">Total Gastado</h1>
+                                <p className="text-sm font-light opacity-80">Gasto Total del Mes</p>
                             </div>
-                        )}
+                            <div className="text-4xl font-extrabold">{formatCurrency(totalGeneral)}</div>
+                        </div>
 
-                        {/* Pestaña 2: Deudas */}
-                        {activeTab === 'debt' && (
-                            <div className="space-y-6">
-                                {/* Tarjeta de Saldo Actual */}
-                                <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-3xl shadow-lg text-white relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full transform translate-x-10 -translate-y-10"></div>
-                                    <h2 className="text-indigo-100 font-medium text-sm mb-1">Deuda Total Pendiente</h2>
-                                    <div className="text-4xl font-bold tracking-tight mb-2">
-                                        {formatCurrency(debtBalance)}
+                        <div className="p-6">
+                            <h2 className="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Distribución de Gastos</h2>
+                            
+                            {/* Lista de gastos detallados */}
+                            <ul className="space-y-3">
+                                {Object.entries(gastos).map(([concepto, monto]) => (
+                                    <li key={concepto} className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
+                                        <span className="text-gray-600">{concepto}</span>
+                                        <span className="font-medium text-slate-900">{formatCurrency(monto)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+
+                            {/* Resumen por Cuenta (Simulado) */}
+                            <div className="mt-8 pt-4 border-t border-dashed border-gray-300">
+                                <h3 className="text-md font-semibold text-slate-800 mb-3">Total a Pagar por Banco (Liquidación)</h3>
+                                
+                                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg mb-2">
+                                    <div className="flex items-center space-x-2">
+                                        <ItauIcon className="w-5 h-5 text-red-600" />
+                                        <span className="text-sm font-medium text-slate-700">ITAU (60%)</span>
                                     </div>
-                                    
-                                    {/* Barra de Progreso Mejorada */}
-                                    <div className="w-full bg-indigo-900/30 rounded-full h-3 mb-2 overflow-hidden backdrop-blur-sm">
-                                        <div 
-                                            className="bg-white/90 h-3 rounded-full transition-all duration-700 ease-out"
-                                            style={{ width: `${progressPercentage}%` }}
-                                        ></div>
-                                    </div>
-                                    <div className="flex justify-between text-xs text-indigo-100 opacity-80">
-                                        <span>Queda {Math.round(progressPercentage)}%</span>
-                                        <span>Total Orig: {formatCurrency(impliedTotalDebt)}</span>
-                                    </div>
-                                    
-                                    {debtBalance === 0 && !isSettingDebt && (
-                                        <button 
-                                            onClick={() => setIsSettingDebt(true)}
-                                            className="text-xs bg-white/20 px-3 py-1 rounded-full text-white backdrop-blur-sm ios-btn mt-3"
-                                        >
-                                            Establecer saldo inicial
-                                        </button>
-                                    )}
-                                </div>
-
-                                {isSettingDebt && (
-                                    <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 animate-fade-in-up">
-                                        <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Saldo Inicial de Deuda</label>
-                                        <input 
-                                            type="number" 
-                                            value={initialDebtInput}
-                                            onChange={(e) => setInitialDebtInput(e.target.value)}
-                                            className="ios-input mb-4"
-                                            placeholder="Ingresa el monto total"
-                                        />
-                                        <button 
-                                            onClick={handleSetDebt}
-                                            className="w-full bg-indigo-600 text-white py-3 rounded-2xl font-semibold ios-btn"
-                                        >
-                                            Guardar Saldo
-                                        </button>
-                                        <button 
-                                            onClick={() => setIsSettingDebt(false)}
-                                            className="w-full mt-2 text-slate-500 py-2 rounded-2xl font-semibold ios-btn"
-                                        >
-                                            Cancelar
-                                        </button>
-                                    </div>
-                                )}
-
-                                <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                                    <h3 className="text-lg font-bold text-slate-800 mb-4">Registrar Abono</h3>
-                                    
-                                    <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Monto a pagar</label>
-                                    <div className="relative mb-4">
-                                        <span className="absolute left-4 top-4 text-slate-400 text-lg">$</span>
-                                        <input 
-                                            type="number" 
-                                            inputMode="numeric"
-                                            value={debtPayment}
-                                            onChange={(e) => setDebtPayment(e.target.value)}
-                                            className="ios-input pl-8 font-semibold text-slate-800"
-                                            placeholder="0"
-                                        />
-                                    </div>
-
-                                    <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Detalle</label>
-                                    <input 
-                                        type="text" 
-                                        value={debtDetail}
-                                        onChange={(e) => setDebtDetail(e.target.value)}
-                                        className="ios-input mb-6"
-                                        placeholder="Ej: Abono Marzo"
-                                    />
-
-                                    <button 
-                                        onClick={payDebt}
-                                        disabled={!debtPayment || !debtDetail || debtBalance <= 0 || isSettingDebt}
-                                        className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg ios-btn disabled:opacity-50 disabled:bg-slate-300"
-                                    >
-                                        Descontar Deuda
-                                    </button>
-                                </div>
-
-                                <div className="flex justify-center">
-                                    <button 
-                                        onClick={resetDebt}
-                                        className="text-red-500 flex items-center space-x-2 px-4 py-2 rounded-full bg-red-50 text-sm font-medium ios-btn"
-                                    >
-                                        <TrashIcon size={16} />
-                                        <span>Reiniciar Deuda</span>
-                                    </button>
+                                    <span className="text-base font-bold text-red-600">{formatCurrency(totalItau)}</span>
                                 </div>
                                 
-                                {/* Historial de Abonos */}
-                                <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                                    <h3 className="text-xl font-bold text-slate-800 mb-4">Historial de Abonos ({getCurrentMonthYear()})</h3>
-                                    <ul className="space-y-3">
-                                        {transactions.filter(t => t.type === 'debt').sort((a, b) => new Date(b.date) - new Date(a.date)).map(t => (
-                                            <li key={t.id} className="flex justify-between items-center text-sm border-b border-gray-100 pb-3 last:border-b-0">
-                                                <div className="flex flex-col">
-                                                    <span className="text-gray-700 font-medium">{t.detail}</span>
-                                                    <span className="text-xs font-semibold text-indigo-500">
-                                                        Pendiente al pagar: {formatCurrency(t.remainingSnapshot)}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="font-bold text-lg text-green-600">-{formatCurrency(t.amount)}</span>
-                                                    <button 
-                                                        onClick={() => initiateDelete(t)} 
-                                                        className="text-red-400 p-2 hover:bg-red-50 rounded-full transition-colors"
-                                                    >
-                                                        <TrashIcon />
-                                                    </button>
-                                                </div>
-                                            </li>
-                                        ))}
-                                        {transactions.filter(t => t.type === 'debt').length === 0 && (
-                                            <li className="text-center text-gray-400 italic py-4">Aún no hay abonos registrados.</li>
-                                        )}
-                                    </ul>
+                                <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
+                                    <div className="flex items-center space-x-2">
+                                        <BchIcon className="w-5 h-5 text-yellow-600" />
+                                        <span className="text-sm font-medium text-slate-700">BCH (40%)</span>
+                                    </div>
+                                    <span className="text-base font-bold text-yellow-600">{formatCurrency(totalBch)}</span>
                                 </div>
 
-                                <div className="h-10"></div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Modal de Confirmación de Borrado */}
-                    {deleteModal.show && (
-                        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-                            <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-fade-in-up">
-                                <div className="flex flex-col items-center text-center">
-                                    <div className="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
-                                        <AlertIcon />
-                                    </div>
-                                    <h3 className="text-xl font-bold text-slate-800 mb-2">¿Eliminar registro?</h3>
-                                    <p className="text-slate-500 text-sm mb-6">
-                                        {deleteModal.item.type === 'debt' 
-                                            ? "Este monto se sumará de vuelta a tu deuda pendiente."
-                                            : "Esta acción no se puede deshacer."}
-                                    </p>
-                                    <div className="flex gap-3 w-full">
-                                        <button 
-                                            onClick={cancelDelete}
-                                            className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold"
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button 
-                                            onClick={confirmDelete}
-                                            className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold shadow-lg shadow-red-200"
-                                        >
-                                            Eliminar
-                                        </button>
-                                    </div>
+                                <div className="mt-8 pt-4 border-t border-dashed border-gray-300 flex justify-between items-center">
+                                    <span className="text-sm font-bold text-gray-500">TOTAL GENERAL</span>
+                                    <span className="text-xl font-bold text-slate-900">{formatCurrency(totalItau + totalBch)}</span>
                                 </div>
                             </div>
                         </div>
-                    )}
 
-                    {/* Barra de Navegación Inferior */}
-                    <div className="fixed bottom-0 left-0 right-0 z-20">
-                        <div className="h-12 bg-gradient-to-t from-[#F2F2F7] to-transparent pointer-events-none"></div>
-                        <div className="bg-white/80 backdrop-blur-xl border-t border-slate-200 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-3 px-6 flex justify-around items-center">
+                        {/* Botón de Compartir/Descargar */}
+                        <div className="p-4 bg-gray-50 rounded-b-3xl">
                             <button 
-                                onClick={() => setActiveTab('settlement')}
-                                className={`flex flex-col items-center space-y-1 transition-all duration-300 ${activeTab === 'settlement' ? 'text-blue-600 -translate-y-1' : 'text-slate-400'}`}
+                                onClick={handleGenerateImage}
+                                disabled={isGenerating}
+                                className={`w-full text-white py-4 rounded-xl font-semibold flex items-center justify-center space-x-2 ios-btn shadow-lg transition duration-150 ease-in-out
+                                    ${isGenerating ? 'bg-blue-400 cursor-not-allowed shadow-blue-100' : 'bg-blue-600 shadow-blue-200 hover:bg-blue-700'}
+                                `}
                             >
-                                <div className={`p-2 rounded-xl transition-all ${activeTab === 'settlement' ? 'bg-blue-100' : 'bg-transparent'}`}>
-                                    <CreditCardIcon />
-                                </div>
-                                <span className="text-[10px] font-semibold">Liquidación</span>
-                            </button>
-
-                            <button 
-                                onClick={() => setActiveTab('debt')}
-                                className={`flex flex-col items-center space-y-1 transition-all duration-300 ${activeTab === 'debt' ? 'text-indigo-600 -translate-y-1' : 'text-slate-400'}`}
-                            >
-                                <div className={`p-2 rounded-xl transition-all ${activeTab === 'debt' ? 'bg-indigo-100' : 'bg-transparent'}`}>
-                                    <WalletIcon />
-                                </div>
-                                <span className="text-[10px] font-semibold">Deudas</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Modal de Reporte (se mantiene igual) */}
-                    {showReport && (
-                        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-                            <div className="bg-white w-full max-w-md rounded-3xl max-h-[90vh] overflow-y-auto flex flex-col shadow-2xl animate-slide-up">
-                                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-3xl">
-                                    <h3 className="font-bold text-lg text-gray-800">Vista Previa</h3>
-                                    <button onClick={() => setShowReport(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 ios-btn">
-                                        <XIcon size={20} />
-                                    </button>
-                                </div>
-                                
-                                <div ref={reportRef} className="p-8 bg-white text-slate-800">
-                                    <div className="text-center mb-8">
-                                        <h2 className="text-2xl font-bold uppercase tracking-wide text-slate-900 mb-1">{getCurrentMonthYear()}</h2>
-                                        <p className="text-sm text-slate-400">Resumen de Pagos</p>
-                                    </div>
-
-                                    <div className="mb-6">
-                                        <div className="flex justify-between items-center mb-3 border-b-2 border-orange-100 pb-2">
-                                            <h3 className="font-bold text-orange-500 text-lg">Banco Itaú</h3>
-                                            <span className="text-xs font-semibold bg-orange-100 text-orange-600 px-2 py-1 rounded-lg">
-                                                Total: {formatCurrency(totalItau)}
-                                            </span>
-                                        </div>
-                                        <ul className="space-y-3">
-                                            {itauTransactions.length === 0 && <li className="text-gray-400 italic text-sm">Sin movimientos</li>}
-                                            {itauTransactions.map(t => (
-                                                <li key={t.id} className="flex justify-between text-sm items-start">
-                                                    <span className="text-gray-600 max-w-[70%]">{t.detail}</span>
-                                                    <span className="font-medium text-gray-900">{formatCurrency(t.amount)}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-
-                                    <div>
-                                        <div className="flex justify-between items-center mb-3 border-b-2 border-blue-100 pb-2">
-                                            <h3 className="font-bold text-blue-600 text-lg">BCH</h3>
-                                            <span className="text-xs font-semibold bg-blue-100 text-blue-600 px-2 py-1 rounded-lg">
-                                                Total: {formatCurrency(totalBch)}
-                                            </span>
-                                        </div>
-                                        <ul className="space-y-3">
-                                            {bchTransactions.length === 0 && <li className="text-gray-400 italic text-sm">Sin movimientos</li>}
-                                            {bchTransactions.map(t => (
-                                                <li key={t.id} className="flex justify-between text-sm items-start">
-                                                    <div className="flex flex-col max-w-[70%]">
-                                                        <span className="text-gray-600">
-                                                            {t.detail}
-                                                            {t.type === 'debt' && (
-                                                                <span className="block text-xs text-indigo-500 font-medium mt-0.5">
-                                                                    (pendiente: {formatCurrency(t.remainingSnapshot)})
-                                                                </span>
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                    <span className="font-medium text-gray-900">{formatCurrency(t.amount)}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-
-                                    <div className="mt-8 pt-4 border-t border-dashed border-gray-300 flex justify-between items-center">
-                                        <span className="text-sm font-bold text-gray-500">TOTAL GENERAL</span>
-                                        <span className="text-xl font-bold text-slate-900">{formatCurrency(totalItau + totalBch)}</span>
-                                    </div>
-                                </div>
-
-                                <div className="p-4 bg-gray-50 rounded-b-3xl">
-                                    <button 
-                                        onClick={generateImage}
-                                        className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold flex items-center justify-center space-x-2 ios-btn shadow-blue-200 shadow-lg"
-                                    >
+                                {isGenerating ? (
+                                    <>
+                                        <LoadingIcon size={20} className="animate-spin" />
+                                        <span>Generando Imagen...</span>
+                                    </>
+                                ) : (
+                                    <>
                                         <ShareIcon size={20} />
                                         <span>Compartir Resumen</span>
-                                    </button>
-                                </div>
-                            </div>
+                                    </>
+                                )}
+                            </button>
                         </div>
-                    )}
+                    </div>
+                </div>
+            );
+        };
+
+
+        // --- Componente Principal (App) ---
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('summary');
+            const [gastos, setGastos] = useState(initialData);
+            const [debts, setDebts] = useState(initialDebts);
+            const [scheduled, setScheduled] = useState(initialScheduled);
+            const [isGenerating, setIsGenerating] = useState(false);
+
+            const totalGeneral = useMemo(() => {
+                return Object.values(gastos).reduce((sum, amount) => sum + amount, 0);
+            }, [gastos]);
+
+            const totalItau = useMemo(() => Math.round(totalGeneral * 0.60), [totalGeneral]);
+            const totalBch = useMemo(() => totalGeneral - totalItau, [totalGeneral]);
+
+            const renderContent = () => {
+                switch (activeTab) {
+                    case 'debts':
+                        return <DebtsTab debts={debts} setDebts={setDebts} />;
+                    case 'scheduled':
+                        return <ScheduledTab scheduled={scheduled} setScheduled={setScheduled} />;
+                    case 'summary':
+                    default:
+                        return (
+                            <SummaryTab 
+                                gastos={gastos} 
+                                totalGeneral={totalGeneral} 
+                                totalItau={totalItau} 
+                                totalBch={totalBch} 
+                                generateImage={setIsGenerating}
+                                isGenerating={isGenerating}
+                            />
+                        );
+                }
+            };
+            
+            // --- COMPONENTE DE NAVEGACIÓN ---\r\n
+            const NavButton = ({ icon: Icon, label, tab, activeTab, setActiveTab }) => {
+                const isActive = activeTab === tab;
+                let primaryColor, activeBg;
+                switch (tab) {
+                    case 'summary':
+                        primaryColor = 'text-blue-600';
+                        activeBg = 'bg-blue-100';
+                        break;
+                    case 'debts':
+                        primaryColor = 'text-red-600';
+                        activeBg = 'bg-red-100';
+                        break;
+                    case 'scheduled':
+                        primaryColor = 'text-yellow-600';
+                        activeBg = 'bg-yellow-100';
+                        break;
+                    default:
+                        primaryColor = 'text-slate-600';
+                        activeBg = 'bg-slate-100';
+                }
+
+                return (
+                    <button 
+                        onClick={() => setActiveTab(tab)}
+                        className={`flex flex-col items-center space-y-1 transition-all duration-300 ios-btn ${isActive ? primaryColor : 'text-slate-400'}`}
+                    >
+                        <div className={`p-2 rounded-xl transition-all duration-300 ${isActive ? activeBg : 'bg-transparent'}`}>
+                            <Icon className="w-5 h-5" />
+                        </div>
+                        <span className="text-[10px] font-semibold">{label}</span>
+                    </button>
+                );
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-100">
+                    <div className="max-w-md w-full mx-auto">
+                        {renderContent()}
+                    </div>
+
+                    {/* Barra de Navegación Fija */}
+                    <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-2xl p-3 border-t border-gray-100 z-40">
+                        <div className="max-w-md mx-auto flex justify-around">
+                            <NavButton 
+                                icon={SummaryIcon} 
+                                label="Resumen" 
+                                tab="summary" 
+                                activeTab={activeTab} 
+                                setActiveTab={setActiveTab} 
+                            />
+                            <NavButton 
+                                icon={DebtIcon} 
+                                label="Deudas" 
+                                tab="debts" 
+                                activeTab={activeTab} 
+                                setActiveTab={setActiveTab} 
+                            />
+                            <NavButton 
+                                icon={ScheduledIcon} 
+                                label="Programados" 
+                                tab="scheduled" 
+                                activeTab={activeTab} 
+                                setActiveTab={setActiveTab} 
+                            />
+                        </div>
+                    </nav>
                 </div>
             );
         };
