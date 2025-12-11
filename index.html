@@ -3,61 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Flor</title>
+    <title>Flor Finanzas</title>
     
-    <!-- Configuración PWA para iOS -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Flor">
     
-    <!-- Icono solicitado -->
     <link rel="apple-touch-icon" href="polla.png">
     <link rel="icon" type="image/png" href="polla.png">
 
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- HTML2Canvas para capturas -->
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
     <style>
-        /* Estilos base para sensación nativa */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #F2F2F7; /* iOS System Gray 6 */
+            background-color: #F2F2F7;
             -webkit-tap-highlight-color: transparent;
             padding-bottom: env(safe-area-inset-bottom);
         }
-        
-        /* Ocultar scrollbar pero permitir scroll */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        /* Animación suave estilo iOS */
-        .ios-btn {
-            transition: transform 0.1s ease, opacity 0.2s;
-        }
-        .ios-btn:active {
-            transform: scale(0.96);
-            opacity: 0.8;
-        }
-
-        /* Input estilo iOS */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .ios-btn { transition: transform 0.1s ease, opacity 0.2s; }
+        .ios-btn:active { transform: scale(0.96); opacity: 0.8; }
         .ios-input {
             background-color: #FFFFFF;
             border-radius: 12px;
@@ -68,15 +44,9 @@
             outline: none;
             transition: border-color 0.2s;
         }
-        .ios-input:focus {
-            border-color: #007AFF;
-        }
-        
-        /* Fix para PWA independiente */
+        .ios-input:focus { border-color: #007AFF; }
         @media all and (display-mode: standalone) {
-            body {
-                padding-top: env(safe-area-inset-top);
-            }
+            body { padding-top: env(safe-area-inset-top); }
         }
     </style>
 </head>
@@ -89,10 +59,12 @@
         // Iconos
         const WalletIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>;
         const CreditCardIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>;
+        const CalendarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>;
         const ShareIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>;
         const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
         const XIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
         const AlertIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>;
+        const CheckIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
 
         // Utilidades
         const formatCurrency = (amount) => {
@@ -108,7 +80,7 @@
             const [activeTab, setActiveTab] = useState('settlement');
             const [showReport, setShowReport] = useState(false);
             
-            // Estado: Liquidación
+            // --- Estado: Liquidación ---
             const [transactions, setTransactions] = useState(() => {
                 const saved = localStorage.getItem('transactions');
                 return saved ? JSON.parse(saved) : [];
@@ -117,7 +89,17 @@
             const [detail, setDetail] = useState('');
             const [account, setAccount] = useState('Itaú');
 
-            // Estado: Deudas
+            // --- Estado: Deudas Fijas (Cuotas) ---
+            const [fixedDebts, setFixedDebts] = useState(() => {
+                const saved = localStorage.getItem('fixedDebts');
+                return saved ? JSON.parse(saved) : [];
+            });
+            const [fixedAmount, setFixedAmount] = useState('');
+            const [fixedDetail, setFixedDetail] = useState('');
+            const [fixedQuotas, setFixedQuotas] = useState('');
+            const [fixedAccount, setFixedAccount] = useState('Itaú');
+
+            // --- Estado: Deudas Globales ---
             const [debtBalance, setDebtBalance] = useState(() => {
                 const saved = localStorage.getItem('debtBalance');
                 return saved ? parseFloat(saved) : 0;
@@ -127,41 +109,89 @@
             const [initialDebtInput, setInitialDebtInput] = useState('');
             const [isSettingDebt, setIsSettingDebt] = useState(false);
 
-            // Estado: Confirmación de Borrado
-            const [deleteModal, setDeleteModal] = useState({ show: false, item: null });
+            // Estado: Modal
+            const [deleteModal, setDeleteModal] = useState({ show: false, item: null, type: null }); // type: 'transaction', 'fixed'
 
-            // Persistencia
-            useEffect(() => {
-                localStorage.setItem('transactions', JSON.stringify(transactions));
-            }, [transactions]);
-
-            useEffect(() => {
-                localStorage.setItem('debtBalance', debtBalance.toString());
-            }, [debtBalance]);
+            // --- Persistencia ---
+            useEffect(() => { localStorage.setItem('transactions', JSON.stringify(transactions)); }, [transactions]);
+            useEffect(() => { localStorage.setItem('debtBalance', debtBalance.toString()); }, [debtBalance]);
+            useEffect(() => { localStorage.setItem('fixedDebts', JSON.stringify(fixedDebts)); }, [fixedDebts]);
 
             // --- Lógica Pestaña 1: Liquidación ---
-            const addTransaction = () => {
-                if (!amount || !detail) return;
+            const addTransaction = (overrideData = null) => {
+                const data = overrideData || { amount: parseInt(amount), detail, account };
+                if (!data.amount || !data.detail) return;
+
                 const newTransaction = {
                     id: Date.now(),
                     date: new Date().toISOString(),
-                    amount: parseInt(amount),
-                    detail,
-                    account,
+                    amount: data.amount,
+                    detail: data.detail,
+                    account: data.account,
                     type: 'normal'
                 };
-                setTransactions([...transactions, newTransaction]);
-                setAmount('');
-                setDetail('');
-            };
-
-            const resetSettlement = () => {
-                if(confirm('¿Borrar todos los registros de liquidación de este mes? (Esto no afecta los abonos de deuda)')) {
-                    setTransactions(prevTransactions => prevTransactions.filter(t => t.type === 'debt')); 
+                setTransactions(prev => [...prev, newTransaction]);
+                
+                if (!overrideData) {
+                    setAmount('');
+                    setDetail('');
                 }
             };
 
-            // --- Lógica Pestaña 2: Deudas ---
+            const resetSettlement = () => {
+                if(confirm('¿Borrar todos los registros de liquidación de este mes?')) {
+                    setTransactions(prev => prev.filter(t => t.type === 'debt')); 
+                }
+            };
+
+            // --- Lógica Pestaña 2: Deudas Fijas / Cuotas ---
+            const addFixedDebt = () => {
+                if (!fixedAmount || !fixedDetail || !fixedQuotas) return;
+                const newFixed = {
+                    id: Date.now(),
+                    amount: parseInt(fixedAmount),
+                    detail: fixedDetail,
+                    totalQuotas: parseInt(fixedQuotas),
+                    paidQuotas: 0,
+                    account: fixedAccount
+                };
+                setFixedDebts([...fixedDebts, newFixed]);
+                setFixedAmount('');
+                setFixedDetail('');
+                setFixedQuotas('');
+            };
+
+            const payFixedInstallment = (debtItem) => {
+                if (debtItem.paidQuotas >= debtItem.totalQuotas) return;
+
+                const nextQuota = debtItem.paidQuotas + 1;
+                const transactionDetail = `${debtItem.detail} (Cuota ${nextQuota}/${debtItem.totalQuotas})`;
+
+                // 1. Agregar a Liquidación
+                addTransaction({
+                    amount: debtItem.amount,
+                    detail: transactionDetail,
+                    account: debtItem.account
+                });
+
+                // 2. Actualizar contador de cuotas
+                setFixedDebts(prev => prev.map(item => {
+                    if (item.id === debtItem.id) {
+                        return { ...item, paidQuotas: nextQuota };
+                    }
+                    return item;
+                }));
+
+                // Feedback visual simple (opcional)
+                alert(`Pago registrado en Liquidación:\n${transactionDetail}`);
+            };
+
+            const initiateDeleteFixed = (item) => {
+                setDeleteModal({ show: true, item, type: 'fixed' });
+            }
+
+
+            // --- Lógica Pestaña 3: Deudas Globales ---
             const handleSetDebt = () => {
                 if (initialDebtInput) {
                     setDebtBalance(parseInt(initialDebtInput));
@@ -173,7 +203,6 @@
             const payDebt = () => {
                 if (!debtPayment || !debtDetail) return;
                 const payAmount = parseInt(debtPayment);
-                
                 const newBalance = debtBalance - payAmount;
                 setDebtBalance(newBalance);
 
@@ -187,485 +216,396 @@
                     remainingSnapshot: newBalance 
                 };
                 setTransactions([...transactions, newTransaction]);
-
                 setDebtPayment('');
                 setDebtDetail('');
             };
 
             const resetDebt = () => {
-                if(confirm('¿Reiniciar el saldo de deuda a cero? Esto es irreversible.')) {
+                if(confirm('¿Reiniciar el saldo de deuda a cero?')) {
                     setDebtBalance(0);
                     setIsSettingDebt(true); 
                 }
             };
 
-            // --- Manejo de Eliminación Individual ---
-            const initiateDelete = (item) => {
-                setDeleteModal({ show: true, item });
+            // --- Manejo de Eliminación General ---
+            const initiateDeleteTransaction = (item) => {
+                setDeleteModal({ show: true, item, type: 'transaction' });
             };
 
             const confirmDelete = () => {
-                const item = deleteModal.item;
+                const { item, type } = deleteModal;
                 if (!item) return;
 
-                // 1. Eliminar de la lista de transacciones
-                setTransactions(transactions.filter(t => t.id !== item.id));
-
-                // 2. Si es un abono de deuda, sumar el monto de vuelta al saldo
-                if (item.type === 'debt') {
-                    setDebtBalance(prev => prev + item.amount);
+                if (type === 'transaction') {
+                    setTransactions(transactions.filter(t => t.id !== item.id));
+                    if (item.type === 'debt') setDebtBalance(prev => prev + item.amount);
+                } else if (type === 'fixed') {
+                    setFixedDebts(fixedDebts.filter(f => f.id !== item.id));
                 }
 
-                setDeleteModal({ show: false, item: null });
+                setDeleteModal({ show: false, item: null, type: null });
             };
 
             const cancelDelete = () => {
-                setDeleteModal({ show: false, item: null });
+                setDeleteModal({ show: false, item: null, type: null });
             };
-
-            // --- Cálculos de la Barra de Progreso ---
-            // Calculamos el total original implícito sumando el saldo actual + todo lo que se ha pagado históricamente (registros de deuda)
-            const totalDebtPaidHistory = transactions.filter(t => t.type === 'debt').reduce((acc, t) => acc + t.amount, 0);
-            const impliedTotalDebt = debtBalance + totalDebtPaidHistory;
-            const progressPercentage = impliedTotalDebt > 0 ? (debtBalance / impliedTotalDebt) * 100 : 0;
-
 
             // --- Reporte ---
             const reportRef = useRef(null);
-
             const generateImage = async () => {
                 if (reportRef.current) {
                     try {
-                        const canvas = await html2canvas(reportRef.current, {
-                            scale: 2, 
-                            backgroundColor: '#FFFFFF',
-                            logging: false
-                        });
-                        
+                        const canvas = await html2canvas(reportRef.current, { scale: 2, backgroundColor: '#FFFFFF' });
                         canvas.toBlob(async (blob) => {
-                            const file = new File([blob], "resumen_pago.png", { type: "image/png" });
+                            const file = new File([blob], "resumen.png", { type: "image/png" });
                             if (navigator.share) {
-                                try {
-                                    await navigator.share({ files: [file], title: 'Resumen de Pagos' });
-                                } catch (err) {
-                                    const url = URL.createObjectURL(blob);
-                                    window.open(url, '_blank');
-                                }
+                                await navigator.share({ files: [file], title: 'Resumen' });
                             } else {
-                                const url = URL.createObjectURL(blob);
-                                window.open(url, '_blank');
+                                window.open(URL.createObjectURL(blob), '_blank');
                             }
                         });
-                    } catch (error) {
-                        console.error("Error al generar imagen:", error);
-                    }
+                    } catch (e) { console.error(e); }
                 }
             };
 
-            // Transacciones del mes actual
+            // Datos Calculados
             const transactionsThisMonth = transactions.filter(t => {
                 const tDate = new Date(t.date);
                 const now = new Date();
                 return tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
             });
-
-            const normalTransactions = transactionsThisMonth
-                .filter(t => t.type === 'normal')
-                .sort((a, b) => new Date(b.date) - new Date(a.date));
-
+            const normalTransactions = transactionsThisMonth.filter(t => t.type === 'normal').sort((a,b) => new Date(b.date) - new Date(a.date));
             const itauTransactions = transactionsThisMonth.filter(t => t.account === 'Itaú');
             const bchTransactions = transactionsThisMonth.filter(t => t.account === 'BCH');
-
             const totalItau = itauTransactions.reduce((acc, curr) => acc + curr.amount, 0);
             const totalBch = bchTransactions.reduce((acc, curr) => acc + curr.amount, 0);
+
+            // Barra de progreso deuda
+            const totalDebtPaidHistory = transactions.filter(t => t.type === 'debt').reduce((acc, t) => acc + t.amount, 0);
+            const impliedTotalDebt = debtBalance + totalDebtPaidHistory;
+            const progressPercentage = impliedTotalDebt > 0 ? (debtBalance / impliedTotalDebt) * 100 : 0;
 
             return (
                 <div className="h-screen flex flex-col bg-slate-50 relative">
                     
-                    {/* Header Dinámico */}
+                    {/* Header */}
                     <div className="pt-14 pb-4 px-6 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b border-slate-200 flex justify-between items-center">
                         <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
-                            {activeTab === 'settlement' ? 'Liquidación' : 'Deudas'}
+                            {activeTab === 'settlement' && 'Liquidación'}
+                            {activeTab === 'fixed' && 'Cuotas'}
+                            {activeTab === 'debt' && 'Deudas'}
                         </h1>
                         {activeTab === 'settlement' && (
-                            <button 
-                                onClick={() => setShowReport(true)}
-                                className="text-blue-600 font-semibold text-lg ios-btn"
-                            >
-                                Reporte
-                            </button>
+                            <button onClick={() => setShowReport(true)} className="text-blue-600 font-semibold text-lg ios-btn">Reporte</button>
                         )}
                     </div>
 
-                    {/* Contenido Principal */}
+                    {/* Contenido */}
                     <div className="flex-1 overflow-y-auto no-scrollbar pb-32 px-4 pt-6">
                         
-                        {/* Pestaña 1: Liquidación */}
+                        {/* PESTAÑA 1: LIQUIDACIÓN */}
                         {activeTab === 'settlement' && (
                             <div className="space-y-6">
-                                {/* Formulario de Liquidación */}
                                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
                                     <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Monto a pagar</label>
                                     <div className="relative mb-4">
                                         <span className="absolute left-4 top-4 text-slate-400 text-lg">$</span>
-                                        <input 
-                                            type="number" 
-                                            inputMode="numeric"
-                                            value={amount}
-                                            onChange={(e) => setAmount(e.target.value)}
-                                            className="ios-input pl-8 font-semibold text-slate-800"
-                                            placeholder="0"
-                                        />
+                                        <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className="ios-input pl-8 font-semibold text-slate-800" placeholder="0" />
                                     </div>
-
-                                    <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Destino</label>
                                     <div className="grid grid-cols-2 gap-3 mb-4">
-                                        <button 
-                                            onClick={() => setAccount('Itaú')}
-                                            className={`py-3 rounded-xl font-medium transition-all ${account === 'Itaú' ? 'bg-orange-500 text-white shadow-md transform scale-105' : 'bg-slate-100 text-slate-500'}`}
-                                        >
-                                            Itaú
-                                        </button>
-                                        <button 
-                                            onClick={() => setAccount('BCH')}
-                                            className={`py-3 rounded-xl font-medium transition-all ${account === 'BCH' ? 'bg-blue-600 text-white shadow-md transform scale-105' : 'bg-slate-100 text-slate-500'}`}
-                                        >
-                                            BCH
-                                        </button>
+                                        <button onClick={() => setAccount('Itaú')} className={`py-3 rounded-xl font-medium transition-all ${account === 'Itaú' ? 'bg-orange-500 text-white shadow-md' : 'bg-slate-100 text-slate-500'}`}>Itaú</button>
+                                        <button onClick={() => setAccount('BCH')} className={`py-3 rounded-xl font-medium transition-all ${account === 'BCH' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-500'}`}>BCH</button>
                                     </div>
-
                                     <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Detalle</label>
-                                    <input 
-                                        type="text" 
-                                        value={detail}
-                                        onChange={(e) => setDetail(e.target.value)}
-                                        className="ios-input mb-6"
-                                        placeholder="Ej: Compras Supermercado"
-                                    />
-
-                                    <button 
-                                        onClick={addTransaction}
-                                        disabled={!amount || !detail}
-                                        className="w-full bg-slate-900 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg ios-btn disabled:opacity-50"
-                                    >
-                                        Agregar Pago
-                                    </button>
+                                    <input type="text" value={detail} onChange={(e) => setDetail(e.target.value)} className="ios-input mb-6" placeholder="Ej: Compras Supermercado" />
+                                    <button onClick={() => addTransaction()} disabled={!amount || !detail} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg ios-btn disabled:opacity-50">Agregar Pago</button>
                                 </div>
                                 
-                                {/* Historial de Pagos del Mes */}
                                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                                    <h3 className="text-xl font-bold text-slate-800 mb-4">Pagos Registrados ({getCurrentMonthYear()})</h3>
+                                    <h3 className="text-xl font-bold text-slate-800 mb-4">Pagos ({getCurrentMonthYear()})</h3>
                                     <ul className="space-y-3">
                                         {normalTransactions.map(t => (
                                             <li key={t.id} className="flex justify-between items-center text-sm border-b border-gray-100 pb-3 last:border-b-0">
                                                 <div className="flex flex-col">
                                                     <span className="text-gray-700 font-medium">{t.detail}</span>
-                                                    <span className={`text-xs font-semibold ${t.account === 'Itaú' ? 'text-orange-500' : 'text-blue-600'}`}>
-                                                        {t.account}
-                                                    </span>
+                                                    <span className={`text-xs font-semibold ${t.account === 'Itaú' ? 'text-orange-500' : 'text-blue-600'}`}>{t.account}</span>
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <span className="font-bold text-lg">{formatCurrency(t.amount)}</span>
-                                                    <button 
-                                                        onClick={() => initiateDelete(t)} 
-                                                        className="text-red-400 p-2 hover:bg-red-50 rounded-full transition-colors"
-                                                    >
-                                                        <TrashIcon />
-                                                    </button>
+                                                    <button onClick={() => initiateDeleteTransaction(t)} className="text-red-400 p-2"><TrashIcon size={18}/></button>
                                                 </div>
                                             </li>
                                         ))}
-                                        {normalTransactions.length === 0 && (
-                                            <li className="text-center text-gray-400 italic py-4">Aún no hay pagos de liquidación este mes.</li>
-                                        )}
+                                        {normalTransactions.length === 0 && <li className="text-center text-gray-400 italic py-4">Sin pagos registrados.</li>}
                                     </ul>
                                 </div>
+                                <div className="flex justify-center"><button onClick={resetSettlement} className="text-red-500 flex items-center space-x-2 px-4 py-2 rounded-full bg-red-50 text-sm font-medium ios-btn"><TrashIcon size={16} /><span>Resetear Mes</span></button></div>
+                            </div>
+                        )}
 
-                                <div className="flex justify-center">
-                                    <button 
-                                        onClick={resetSettlement}
-                                        className="text-red-500 flex items-center space-x-2 px-4 py-2 rounded-full bg-red-50 text-sm font-medium ios-btn"
-                                    >
-                                        <TrashIcon size={16} />
-                                        <span>Resetear Liquidación</span>
-                                    </button>
+                        {/* PESTAÑA 2: CUOTAS (NUEVA) */}
+                        {activeTab === 'fixed' && (
+                            <div className="space-y-6">
+                                {/* Formulario Nueva Deuda Fija */}
+                                <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                                    <h3 className="text-lg font-bold text-slate-800 mb-4">Registrar Pago Recurrente</h3>
+                                    
+                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label className="text-xs text-slate-500 ml-1">Monto Cuota</label>
+                                            <input type="number" value={fixedAmount} onChange={(e) => setFixedAmount(e.target.value)} className="ios-input mt-1" placeholder="$" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-500 ml-1">N° Cuotas</label>
+                                            <input type="number" value={fixedQuotas} onChange={(e) => setFixedQuotas(e.target.value)} className="ios-input mt-1" placeholder="#" />
+                                        </div>
+                                    </div>
+                                    
+                                    <label className="text-xs text-slate-500 ml-1">Banco</label>
+                                    <div className="grid grid-cols-2 gap-3 mb-4 mt-1">
+                                        <button onClick={() => setFixedAccount('Itaú')} className={`py-2 rounded-lg text-sm font-medium ${fixedAccount === 'Itaú' ? 'bg-orange-100 text-orange-600 border border-orange-200' : 'bg-slate-50 text-slate-500 border border-slate-100'}`}>Itaú</button>
+                                        <button onClick={() => setFixedAccount('BCH')} className={`py-2 rounded-lg text-sm font-medium ${fixedAccount === 'BCH' ? 'bg-blue-100 text-blue-600 border border-blue-200' : 'bg-slate-50 text-slate-500 border border-slate-100'}`}>BCH</button>
+                                    </div>
+
+                                    <label className="text-xs text-slate-500 ml-1">Nombre / Detalle</label>
+                                    <input type="text" value={fixedDetail} onChange={(e) => setFixedDetail(e.target.value)} className="ios-input mt-1 mb-4" placeholder="Ej: Celular" />
+
+                                    <button onClick={addFixedDebt} disabled={!fixedAmount || !fixedDetail || !fixedQuotas} className="w-full bg-slate-800 text-white py-3 rounded-xl font-semibold ios-btn disabled:opacity-50">Guardar Recurrente</button>
                                 </div>
-                                
+
+                                {/* Lista de Pagos Fijos */}
+                                <div className="space-y-4">
+                                    <h3 className="text-lg font-bold text-slate-800 ml-2">Mis Compromisos</h3>
+                                    {fixedDebts.map(item => {
+                                        const isFinished = item.paidQuotas >= item.totalQuotas;
+                                        return (
+                                            <div key={item.id} className={`bg-white p-5 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden transition-all ${isFinished ? 'opacity-60 grayscale' : ''}`}>
+                                                
+                                                {/* Header Card */}
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <div>
+                                                        <h4 className="font-bold text-lg text-slate-800">{item.detail}</h4>
+                                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${item.account === 'Itaú' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                                                            {item.account}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-xl font-bold text-slate-900">{formatCurrency(item.amount)}</div>
+                                                        <div className="text-xs text-slate-500">por cuota</div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Progress Info */}
+                                                <div className="flex justify-between items-end mb-4">
+                                                    <div className="text-sm text-slate-600">
+                                                        <span className="font-medium">Cuota:</span> {item.paidQuotas} / {item.totalQuotas}
+                                                    </div>
+                                                    <div className="text-xs text-slate-400">
+                                                        Restante: {formatCurrency(item.amount * (item.totalQuotas - item.paidQuotas))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Actions */}
+                                                <div className="flex gap-3">
+                                                    <button 
+                                                        onClick={() => payFixedInstallment(item)}
+                                                        disabled={isFinished}
+                                                        className={`flex-1 py-3 rounded-xl font-semibold flex justify-center items-center space-x-2 ios-btn ${isFinished ? 'bg-slate-100 text-slate-400' : 'bg-green-500 text-white shadow-green-200 shadow-md'}`}
+                                                    >
+                                                        {isFinished ? (
+                                                            <span>Pagado</span>
+                                                        ) : (
+                                                            <>
+                                                                <CheckIcon size={18} />
+                                                                <span>Pagar Cuota {item.paidQuotas + 1}</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => initiateDeleteFixed(item)}
+                                                        className="px-4 bg-red-50 text-red-400 rounded-xl flex items-center justify-center"
+                                                    >
+                                                        <TrashIcon size={20} />
+                                                    </button>
+                                                </div>
+                                                
+                                                {/* Progress Bar Visual */}
+                                                <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-100">
+                                                    <div 
+                                                        className={`h-full transition-all duration-500 ${isFinished ? 'bg-green-500' : 'bg-indigo-500'}`} 
+                                                        style={{ width: `${(item.paidQuotas / item.totalQuotas) * 100}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {fixedDebts.length === 0 && (
+                                        <div className="text-center py-8 text-slate-400">
+                                            <p>No tienes pagos fijos registrados.</p>
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="h-10"></div>
                             </div>
                         )}
 
-                        {/* Pestaña 2: Deudas */}
+                        {/* PESTAÑA 3: DEUDAS GLOBALES */}
                         {activeTab === 'debt' && (
                             <div className="space-y-6">
-                                {/* Tarjeta de Saldo Actual */}
                                 <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-3xl shadow-lg text-white relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full transform translate-x-10 -translate-y-10"></div>
                                     <h2 className="text-indigo-100 font-medium text-sm mb-1">Deuda Total Pendiente</h2>
-                                    <div className="text-4xl font-bold tracking-tight mb-2">
-                                        {formatCurrency(debtBalance)}
-                                    </div>
-                                    
-                                    {/* Barra de Progreso Mejorada */}
+                                    <div className="text-4xl font-bold tracking-tight mb-2">{formatCurrency(debtBalance)}</div>
                                     <div className="w-full bg-indigo-900/30 rounded-full h-3 mb-2 overflow-hidden backdrop-blur-sm">
-                                        <div 
-                                            className="bg-white/90 h-3 rounded-full transition-all duration-700 ease-out"
-                                            style={{ width: `${progressPercentage}%` }}
-                                        ></div>
+                                        <div className="bg-white/90 h-3 rounded-full transition-all duration-700 ease-out" style={{ width: `${progressPercentage}%` }}></div>
                                     </div>
                                     <div className="flex justify-between text-xs text-indigo-100 opacity-80">
                                         <span>Queda {Math.round(progressPercentage)}%</span>
                                         <span>Total Orig: {formatCurrency(impliedTotalDebt)}</span>
                                     </div>
-                                    
                                     {debtBalance === 0 && !isSettingDebt && (
-                                        <button 
-                                            onClick={() => setIsSettingDebt(true)}
-                                            className="text-xs bg-white/20 px-3 py-1 rounded-full text-white backdrop-blur-sm ios-btn mt-3"
-                                        >
-                                            Establecer saldo inicial
-                                        </button>
+                                        <button onClick={() => setIsSettingDebt(true)} className="text-xs bg-white/20 px-3 py-1 rounded-full text-white backdrop-blur-sm ios-btn mt-3">Establecer saldo</button>
                                     )}
                                 </div>
 
                                 {isSettingDebt && (
-                                    <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 animate-fade-in-up">
-                                        <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Saldo Inicial de Deuda</label>
-                                        <input 
-                                            type="number" 
-                                            value={initialDebtInput}
-                                            onChange={(e) => setInitialDebtInput(e.target.value)}
-                                            className="ios-input mb-4"
-                                            placeholder="Ingresa el monto total"
-                                        />
-                                        <button 
-                                            onClick={handleSetDebt}
-                                            className="w-full bg-indigo-600 text-white py-3 rounded-2xl font-semibold ios-btn"
-                                        >
-                                            Guardar Saldo
-                                        </button>
-                                        <button 
-                                            onClick={() => setIsSettingDebt(false)}
-                                            className="w-full mt-2 text-slate-500 py-2 rounded-2xl font-semibold ios-btn"
-                                        >
-                                            Cancelar
-                                        </button>
+                                    <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                                        <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Saldo Inicial</label>
+                                        <input type="number" value={initialDebtInput} onChange={(e) => setInitialDebtInput(e.target.value)} className="ios-input mb-4" placeholder="Monto total" />
+                                        <button onClick={handleSetDebt} className="w-full bg-indigo-600 text-white py-3 rounded-2xl font-semibold ios-btn">Guardar Saldo</button>
+                                        <button onClick={() => setIsSettingDebt(false)} className="w-full mt-2 text-slate-500 py-2 rounded-2xl font-semibold ios-btn">Cancelar</button>
                                     </div>
                                 )}
 
                                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
                                     <h3 className="text-lg font-bold text-slate-800 mb-4">Registrar Abono</h3>
-                                    
-                                    <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Monto a pagar</label>
+                                    <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Monto</label>
                                     <div className="relative mb-4">
                                         <span className="absolute left-4 top-4 text-slate-400 text-lg">$</span>
-                                        <input 
-                                            type="number" 
-                                            inputMode="numeric"
-                                            value={debtPayment}
-                                            onChange={(e) => setDebtPayment(e.target.value)}
-                                            className="ios-input pl-8 font-semibold text-slate-800"
-                                            placeholder="0"
-                                        />
+                                        <input type="number" inputMode="numeric" value={debtPayment} onChange={(e) => setDebtPayment(e.target.value)} className="ios-input pl-8 font-semibold text-slate-800" placeholder="0" />
                                     </div>
-
                                     <label className="block text-sm font-medium text-slate-500 mb-2 ml-1">Detalle</label>
-                                    <input 
-                                        type="text" 
-                                        value={debtDetail}
-                                        onChange={(e) => setDebtDetail(e.target.value)}
-                                        className="ios-input mb-6"
-                                        placeholder="Ej: Abono Marzo"
-                                    />
-
-                                    <button 
-                                        onClick={payDebt}
-                                        disabled={!debtPayment || !debtDetail || debtBalance <= 0 || isSettingDebt}
-                                        className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg ios-btn disabled:opacity-50 disabled:bg-slate-300"
-                                    >
-                                        Descontar Deuda
-                                    </button>
+                                    <input type="text" value={debtDetail} onChange={(e) => setDebtDetail(e.target.value)} className="ios-input mb-6" placeholder="Ej: Abono Marzo" />
+                                    <button onClick={payDebt} disabled={!debtPayment || !debtDetail || debtBalance <= 0 || isSettingDebt} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg ios-btn disabled:opacity-50">Descontar Deuda</button>
                                 </div>
-
-                                <div className="flex justify-center">
-                                    <button 
-                                        onClick={resetDebt}
-                                        className="text-red-500 flex items-center space-x-2 px-4 py-2 rounded-full bg-red-50 text-sm font-medium ios-btn"
-                                    >
-                                        <TrashIcon size={16} />
-                                        <span>Reiniciar Deuda</span>
-                                    </button>
-                                </div>
+                                <div className="flex justify-center"><button onClick={resetDebt} className="text-red-500 flex items-center space-x-2 px-4 py-2 rounded-full bg-red-50 text-sm font-medium ios-btn"><TrashIcon size={16} /><span>Reiniciar Deuda</span></button></div>
                                 
-                                {/* Historial de Abonos */}
                                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                                    <h3 className="text-xl font-bold text-slate-800 mb-4">Historial de Abonos ({getCurrentMonthYear()})</h3>
+                                    <h3 className="text-xl font-bold text-slate-800 mb-4">Abonos ({getCurrentMonthYear()})</h3>
                                     <ul className="space-y-3">
-                                        {transactions.filter(t => t.type === 'debt').sort((a, b) => new Date(b.date) - new Date(a.date)).map(t => (
+                                        {transactions.filter(t => t.type === 'debt').sort((a,b) => new Date(b.date) - new Date(a.date)).map(t => (
                                             <li key={t.id} className="flex justify-between items-center text-sm border-b border-gray-100 pb-3 last:border-b-0">
                                                 <div className="flex flex-col">
                                                     <span className="text-gray-700 font-medium">{t.detail}</span>
-                                                    <span className="text-xs font-semibold text-indigo-500">
-                                                        Pendiente al pagar: {formatCurrency(t.remainingSnapshot)}
-                                                    </span>
+                                                    <span className="text-xs font-semibold text-indigo-500">Pendiente: {formatCurrency(t.remainingSnapshot)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <span className="font-bold text-lg text-green-600">-{formatCurrency(t.amount)}</span>
-                                                    <button 
-                                                        onClick={() => initiateDelete(t)} 
-                                                        className="text-red-400 p-2 hover:bg-red-50 rounded-full transition-colors"
-                                                    >
-                                                        <TrashIcon />
-                                                    </button>
+                                                    <button onClick={() => initiateDeleteTransaction(t)} className="text-red-400 p-2"><TrashIcon/></button>
                                                 </div>
                                             </li>
                                         ))}
-                                        {transactions.filter(t => t.type === 'debt').length === 0 && (
-                                            <li className="text-center text-gray-400 italic py-4">Aún no hay abonos registrados.</li>
-                                        )}
+                                        {transactions.filter(t => t.type === 'debt').length === 0 && <li className="text-center text-gray-400 italic py-4">Sin abonos.</li>}
                                     </ul>
                                 </div>
-
                                 <div className="h-10"></div>
                             </div>
                         )}
                     </div>
 
-                    {/* Modal de Confirmación de Borrado */}
+                    {/* Modal Confirmación Borrar */}
                     {deleteModal.show && (
                         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-fade-in-up">
                                 <div className="flex flex-col items-center text-center">
-                                    <div className="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
-                                        <AlertIcon />
-                                    </div>
+                                    <div className="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4"><AlertIcon /></div>
                                     <h3 className="text-xl font-bold text-slate-800 mb-2">¿Eliminar registro?</h3>
                                     <p className="text-slate-500 text-sm mb-6">
-                                        {deleteModal.item.type === 'debt' 
-                                            ? "Este monto se sumará de vuelta a tu deuda pendiente."
-                                            : "Esta acción no se puede deshacer."}
+                                        {deleteModal.type === 'fixed' 
+                                            ? "Se borrará la configuración de este pago recurrente." 
+                                            : deleteModal.item.type === 'debt' 
+                                                ? "El monto se sumará de vuelta a la deuda." 
+                                                : "Esta acción no se puede deshacer."}
                                     </p>
                                     <div className="flex gap-3 w-full">
-                                        <button 
-                                            onClick={cancelDelete}
-                                            className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold"
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button 
-                                            onClick={confirmDelete}
-                                            className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold shadow-lg shadow-red-200"
-                                        >
-                                            Eliminar
-                                        </button>
+                                        <button onClick={cancelDelete} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold">Cancelar</button>
+                                        <button onClick={confirmDelete} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold shadow-lg">Eliminar</button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Barra de Navegación Inferior */}
+                    {/* Nav Bar */}
                     <div className="fixed bottom-0 left-0 right-0 z-20">
                         <div className="h-12 bg-gradient-to-t from-[#F2F2F7] to-transparent pointer-events-none"></div>
                         <div className="bg-white/80 backdrop-blur-xl border-t border-slate-200 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-3 px-6 flex justify-around items-center">
-                            <button 
-                                onClick={() => setActiveTab('settlement')}
-                                className={`flex flex-col items-center space-y-1 transition-all duration-300 ${activeTab === 'settlement' ? 'text-blue-600 -translate-y-1' : 'text-slate-400'}`}
-                            >
-                                <div className={`p-2 rounded-xl transition-all ${activeTab === 'settlement' ? 'bg-blue-100' : 'bg-transparent'}`}>
-                                    <CreditCardIcon />
-                                </div>
+                            <button onClick={() => setActiveTab('settlement')} className={`flex flex-col items-center space-y-1 transition-all duration-300 ${activeTab === 'settlement' ? 'text-blue-600 -translate-y-1' : 'text-slate-400'}`}>
+                                <div className={`p-2 rounded-xl transition-all ${activeTab === 'settlement' ? 'bg-blue-100' : 'bg-transparent'}`}><CreditCardIcon /></div>
                                 <span className="text-[10px] font-semibold">Liquidación</span>
                             </button>
+                            
+                            <button onClick={() => setActiveTab('fixed')} className={`flex flex-col items-center space-y-1 transition-all duration-300 ${activeTab === 'fixed' ? 'text-green-600 -translate-y-1' : 'text-slate-400'}`}>
+                                <div className={`p-2 rounded-xl transition-all ${activeTab === 'fixed' ? 'bg-green-100' : 'bg-transparent'}`}><CalendarIcon /></div>
+                                <span className="text-[10px] font-semibold">Cuotas</span>
+                            </button>
 
-                            <button 
-                                onClick={() => setActiveTab('debt')}
-                                className={`flex flex-col items-center space-y-1 transition-all duration-300 ${activeTab === 'debt' ? 'text-indigo-600 -translate-y-1' : 'text-slate-400'}`}
-                            >
-                                <div className={`p-2 rounded-xl transition-all ${activeTab === 'debt' ? 'bg-indigo-100' : 'bg-transparent'}`}>
-                                    <WalletIcon />
-                                </div>
+                            <button onClick={() => setActiveTab('debt')} className={`flex flex-col items-center space-y-1 transition-all duration-300 ${activeTab === 'debt' ? 'text-indigo-600 -translate-y-1' : 'text-slate-400'}`}>
+                                <div className={`p-2 rounded-xl transition-all ${activeTab === 'debt' ? 'bg-indigo-100' : 'bg-transparent'}`}><WalletIcon /></div>
                                 <span className="text-[10px] font-semibold">Deudas</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* Modal de Reporte (se mantiene igual) */}
+                    {/* Modal Reporte */}
                     {showReport && (
                         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-                            <div className="bg-white w-full max-w-md rounded-3xl max-h-[90vh] overflow-y-auto flex flex-col shadow-2xl animate-slide-up">
+                            <div className="bg-white w-full max-w-md rounded-3xl max-h-[90vh] overflow-y-auto flex flex-col shadow-2xl">
                                 <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-3xl">
                                     <h3 className="font-bold text-lg text-gray-800">Vista Previa</h3>
-                                    <button onClick={() => setShowReport(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 ios-btn">
-                                        <XIcon size={20} />
-                                    </button>
+                                    <button onClick={() => setShowReport(false)} className="p-2 bg-gray-200 rounded-full text-gray-600 ios-btn"><XIcon size={20} /></button>
                                 </div>
-                                
                                 <div ref={reportRef} className="p-8 bg-white text-slate-800">
                                     <div className="text-center mb-8">
                                         <h2 className="text-2xl font-bold uppercase tracking-wide text-slate-900 mb-1">{getCurrentMonthYear()}</h2>
                                         <p className="text-sm text-slate-400">Resumen de Pagos</p>
                                     </div>
-
                                     <div className="mb-6">
                                         <div className="flex justify-between items-center mb-3 border-b-2 border-orange-100 pb-2">
                                             <h3 className="font-bold text-orange-500 text-lg">Banco Itaú</h3>
-                                            <span className="text-xs font-semibold bg-orange-100 text-orange-600 px-2 py-1 rounded-lg">
-                                                Total: {formatCurrency(totalItau)}
-                                            </span>
+                                            <span className="text-xs font-semibold bg-orange-100 text-orange-600 px-2 py-1 rounded-lg">Total: {formatCurrency(totalItau)}</span>
                                         </div>
                                         <ul className="space-y-3">
                                             {itauTransactions.length === 0 && <li className="text-gray-400 italic text-sm">Sin movimientos</li>}
                                             {itauTransactions.map(t => (
-                                                <li key={t.id} className="flex justify-between text-sm items-start">
-                                                    <span className="text-gray-600 max-w-[70%]">{t.detail}</span>
-                                                    <span className="font-medium text-gray-900">{formatCurrency(t.amount)}</span>
-                                                </li>
+                                                <li key={t.id} className="flex justify-between text-sm items-start"><span className="text-gray-600 max-w-[70%]">{t.detail}</span><span className="font-medium text-gray-900">{formatCurrency(t.amount)}</span></li>
                                             ))}
                                         </ul>
                                     </div>
-
                                     <div>
                                         <div className="flex justify-between items-center mb-3 border-b-2 border-blue-100 pb-2">
                                             <h3 className="font-bold text-blue-600 text-lg">BCH</h3>
-                                            <span className="text-xs font-semibold bg-blue-100 text-blue-600 px-2 py-1 rounded-lg">
-                                                Total: {formatCurrency(totalBch)}
-                                            </span>
+                                            <span className="text-xs font-semibold bg-blue-100 text-blue-600 px-2 py-1 rounded-lg">Total: {formatCurrency(totalBch)}</span>
                                         </div>
                                         <ul className="space-y-3">
                                             {bchTransactions.length === 0 && <li className="text-gray-400 italic text-sm">Sin movimientos</li>}
                                             {bchTransactions.map(t => (
                                                 <li key={t.id} className="flex justify-between text-sm items-start">
                                                     <div className="flex flex-col max-w-[70%]">
-                                                        <span className="text-gray-600">
-                                                            {t.detail}
-                                                            {t.type === 'debt' && (
-                                                                <span className="block text-xs text-indigo-500 font-medium mt-0.5">
-                                                                    (pendiente: {formatCurrency(t.remainingSnapshot)})
-                                                                </span>
-                                                            )}
-                                                        </span>
+                                                        <span className="text-gray-600">{t.detail}{t.type === 'debt' && (<span className="block text-xs text-indigo-500 font-medium mt-0.5">(pendiente: {formatCurrency(t.remainingSnapshot)})</span>)}</span>
                                                     </div>
                                                     <span className="font-medium text-gray-900">{formatCurrency(t.amount)}</span>
                                                 </li>
                                             ))}
                                         </ul>
                                     </div>
-
                                     <div className="mt-8 pt-4 border-t border-dashed border-gray-300 flex justify-between items-center">
                                         <span className="text-sm font-bold text-gray-500">TOTAL GENERAL</span>
                                         <span className="text-xl font-bold text-slate-900">{formatCurrency(totalItau + totalBch)}</span>
                                     </div>
                                 </div>
-
                                 <div className="p-4 bg-gray-50 rounded-b-3xl">
-                                    <button 
-                                        onClick={generateImage}
-                                        className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold flex items-center justify-center space-x-2 ios-btn shadow-blue-200 shadow-lg"
-                                    >
-                                        <ShareIcon size={20} />
-                                        <span>Compartir Resumen</span>
-                                    </button>
+                                    <button onClick={generateImage} className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold flex items-center justify-center space-x-2 ios-btn shadow-blue-200 shadow-lg"><ShareIcon size={20} /><span>Compartir Resumen</span></button>
                                 </div>
                             </div>
                         </div>
